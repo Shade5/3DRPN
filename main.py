@@ -75,29 +75,47 @@ def draw_bbox(voxels, bbox):
     voxels[(bbox[0][0] - int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2)):(bbox[0][2] + int(bbox[1][2] / 2))] = 1
 
 
+def first_layers(data_0, data_90):
+    # Image from 0 degree
+    x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+
+    x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+
+    # Image from 90 degree
+    x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+
+    x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+    x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+
+    FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 32, 1])
+    FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 32, 1, 1])
+
+    return FT
+
+
+def rpn(fl_input):
+    temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu)
+    temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(1, 1, 1), activation=tf.nn.relu)
+    temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(2, 1, 1), activation=tf.nn.relu)
+    # yet to complete
+
+
 iterator = make_data('double_train')
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     for i in range(300):
-        data = sess.run(iterator.get_next())
+        data = iterator.get_next()
+        FT = first_layers(data[0][:, 0], data[0][:, 5])
+        rpn(FT)
 
-        # Image from 0 degree
-        x_0 = tf.layers.conv2d(data[0][:, 0], filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-        x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
-
-        # Image from 90 degree
-        x_90 = tf.layers.conv2d(data[0][:, 5], filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
-
-        x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
 
