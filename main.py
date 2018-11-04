@@ -1,8 +1,5 @@
 import tensorflow as tf
 import constants as const
-import numpy as np
-import mayavi.mlab
-from matplotlib import pyplot as plt
 
 
 def make_data(fn):
@@ -11,7 +8,8 @@ def make_data(fn):
     fns = [const.data_path + fn.strip() + ".tfrecord" for fn in fns]
     data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
     data = data.map(decode, num_parallel_calls=8)
-    data = data.shuffle(256)
+    print("Disables shuffle buffer")
+    # data = data.shuffle(256)
     data = data.repeat()
     data = data.batch(const.BS)
     data = data.prefetch(4)
@@ -80,67 +78,78 @@ def draw_bbox(voxels, bbox):
 
 def first_layers(data_0, data_90):
     # Image from 0 degree
-    x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+    with tf.name_scope('projection_0'):
+        x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-    # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    # x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+        # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        # x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-    # Image from 90 degree
-    x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+        # Image from 90 degree
+    with tf.name_scope('projection_90'):
+        x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-    # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-    # x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+        # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+        # x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+    with tf.name_scope('merge_3D'):
+        FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
+        FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
 
-    FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
-    FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
+    tf.summary.image('data_0', data_0)
+    tf.summary.image('data_90', data_90)
 
     return FT
 
 
 def rpn(fl_input):
-    temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(1, 1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
+    with tf.name_scope('rpn'):
+        with tf.name_scope('conv3D'):
+            temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(1, 1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
 
-    temp_conv = tf.transpose(temp_conv, perm=[0, 2, 3, 4, 1])
-    temp_conv = tf.reshape(temp_conv, [-1, temp_conv.shape[1], temp_conv.shape[2], (temp_conv.shape[3]*temp_conv.shape[4])])
-    # rpn
-    # block1:
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    deconv1 = tf.layers.conv2d_transpose(temp_conv, 256, 3, strides=(1, 1), padding="same")
-    # block2:
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    deconv2 = tf.layers.conv2d_transpose(temp_conv, 256, 2, strides=(2, 2), padding="same")
-    # block3:
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-    deconv3 = tf.layers.conv2d_transpose(temp_conv, 256, 4, strides=(4, 4), padding="SAME")
+            temp_conv = tf.transpose(temp_conv, perm=[0, 2, 3, 4, 1])
+            temp_conv = tf.reshape(temp_conv, [-1, temp_conv.shape[1], temp_conv.shape[2], (temp_conv.shape[3]*temp_conv.shape[4])])
+        with tf.name_scope('block1'):
+            # block1:
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            deconv1 = tf.layers.conv2d_transpose(temp_conv, 256, 3, strides=(1, 1), padding="same")
+        with tf.name_scope('block2'):
+            # block2:
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            deconv2 = tf.layers.conv2d_transpose(temp_conv, 256, 2, strides=(2, 2), padding="same")
+        with tf.name_scope('block3'):
+            # block3:
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+            deconv3 = tf.layers.conv2d_transpose(temp_conv, 256, 4, strides=(4, 4), padding="SAME")
 
-    # final:
-    temp_conv = tf.concat([deconv3, deconv2, deconv1], -1)
-    # Probability score map, scale = [None, 200/100, 176/120, 2]
-    p_map = tf.layers.conv2d(temp_conv, 1, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
-    # Regression(residual) map, scale = [None, 200/100, 176/120, 14]
-    r_map = tf.layers.conv2d(temp_conv, 6, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
-    p_pos = tf.reshape(tf.sigmoid(p_map), (-1, 32, 32))
+        # final:
+        temp_conv = tf.concat([deconv3, deconv2, deconv1], -1)
+        # Probability score map, scale = [None, 200/100, 176/120, 2]
+        p_map = tf.layers.conv2d(temp_conv, 1, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+        # Regression(residual) map, scale = [None, 200/100, 176/120, 14]
+        r_map = tf.layers.conv2d(temp_conv, 6, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+        p_pos = tf.sigmoid(p_map)
+        tf.summary.image('p_pos', p_pos)
+        p_pos = tf.reshape(p_pos, (-1, 32, 32))
 
     return p_pos, r_map
 
@@ -171,6 +180,10 @@ def calc_loss(p_pos, r_map, pos_equal_one, anchors_reg):
     loss_reg = tf.reduce_sum(smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
 
     loss = loss_prob + loss_reg
+    tf.summary.image('real_pos', tf.expand_dims(pos_equal_one, 3))
+    tf.summary.scalar('loss', loss)
+    tf.summary.scalar('loss_prob', loss_prob)
+    tf.summary.scalar('loss_reg', loss_reg)
 
     return loss
 
@@ -180,14 +193,23 @@ iterator = make_data('double_train')
 data = iterator.get_next()
 FT = first_layers(data[0][:, 0], data[0][:, 5])
 p_pos, r_map = rpn(FT)
-loss = calc_loss(p_pos, r_map, data[4], data[6])
-opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
+with tf.name_scope('loss'):
+    loss = calc_loss(p_pos, r_map, data[4], data[6])
+with tf.name_scope('train'):
+    opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
 
+merged_summary = tf.summary.merge_all()
+writer = tf.summary.FileWriter('log')
 
 with tf.Session() as sess:
+    # writer.add_graph(sess.graph)
     sess.run(tf.global_variables_initializer())
     for i in range(300):
+        if i%const.valp == 0:
+            s = sess.run(merged_summary)
+            writer.add_summary(s, i)
         sess.run(opt)
+        print(i)
 
 
 
