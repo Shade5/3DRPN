@@ -4,3 +4,4 @@ Wdata = 128
 BS = 2
 lr = 5E-5
 mom = 0.9
+valp = 10
