@@ -11,7 +11,10 @@ def make_data(fn):
     fns = [const.data_path + fn.strip() + ".tfrecord" for fn in fns]
     data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
     data = data.map(decode, num_parallel_calls=8)
+    data = data.shuffle(256)
+    data = data.repeat()
     data = data.batch(const.BS)
+    data = data.prefetch(4)
     iterator = data.make_one_shot_iterator()
 
     return iterator
@@ -46,13 +49,13 @@ def decode(example):
     bbox2 = tf.decode_raw(stuff['bbox2'], tf.int64)
     bbox2 = tf.reshape(bbox2, (2, 3))
 
-    pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
+    pos_equal_one = tf.cast(tf.decode_raw(stuff['pos_equal_one'], tf.int64), tf.float32)
     pos_equal_one = tf.reshape(pos_equal_one, (32, 32))
 
-    neg_equal_one = tf.decode_raw(stuff['neg_equal_one'], tf.int64)
+    neg_equal_one = tf.cast(tf.decode_raw(stuff['neg_equal_one'], tf.int64), tf.float32)
     neg_equal_one = tf.reshape(neg_equal_one, (32, 32))
 
-    anchor_reg = tf.decode_raw(stuff['anchor_reg'], tf.int64)
+    anchor_reg = tf.cast(tf.decode_raw(stuff['anchor_reg'], tf.int64), tf.float32)
     anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
 
     return images, voxel, bbox1, bbox2, pos_equal_one, neg_equal_one, anchor_reg
@@ -134,23 +137,57 @@ def rpn(fl_input):
     # final:
     temp_conv = tf.concat([deconv3, deconv2, deconv1], -1)
     # Probability score map, scale = [None, 200/100, 176/120, 2]
-    p_map = tf.layers.conv2d(temp_conv, 768, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+    p_map = tf.layers.conv2d(temp_conv, 1, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
     # Regression(residual) map, scale = [None, 200/100, 176/120, 14]
-    r_map = tf.layers.conv2d(temp_conv, 768, 6, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+    r_map = tf.layers.conv2d(temp_conv, 6, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
     p_pos = tf.reshape(tf.sigmoid(p_map), (-1, 32, 32))
 
     return p_pos, r_map
 
 
+def smooth_l1(deltas, targets, sigma=3.0):
+    sigma2 = sigma * sigma
+    diffs = tf.subtract(deltas, targets)
+    smooth_l1_signs = tf.cast(tf.less(tf.abs(diffs), 1.0 / sigma2), tf.float32)
+
+    smooth_l1_option1 = tf.multiply(diffs, diffs) * 0.5 * sigma2
+    smooth_l1_option2 = tf.abs(diffs) - 0.5 / sigma2
+    smooth_l1_add = tf.multiply(smooth_l1_option1, smooth_l1_signs) + \
+        tf.multiply(smooth_l1_option2, 1 - smooth_l1_signs)
+    smooth_l1 = smooth_l1_add
+
+    return smooth_l1
+
+
+def calc_loss(p_pos, r_map, pos_equal_one, anchors_reg):
+    pos_equal_one_sum = tf.reduce_sum(pos_equal_one, axis=[1, 2])
+    neg_equal_one_sum = tf.reduce_sum(1 - pos_equal_one, axis=[1, 2])
+    cls_pos_loss = (-pos_equal_one * tf.log(p_pos + 1e-6)) / tf.reshape(pos_equal_one_sum, [-1, 1, 1])
+    cls_neg_loss = (-(1 - pos_equal_one) * tf.log(1 - p_pos + 1e-6)) / tf.reshape(neg_equal_one_sum, [-1, 1, 1])
+    loss_prob = tf.reduce_sum(cls_pos_loss + cls_neg_loss) / const.BS
+
+    pos_equal_one_expanded = tf.expand_dims(pos_equal_one, 3)
+    r_map_mask = tf.tile(pos_equal_one_expanded, [1, 1, 1, 6])
+    loss_reg = tf.reduce_sum(smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
+
+    loss = loss_prob + loss_reg
+
+    return loss
+
+
 iterator = make_data('double_train')
+
+data = iterator.get_next()
+FT = first_layers(data[0][:, 0], data[0][:, 5])
+p_pos, r_map = rpn(FT)
+loss = calc_loss(p_pos, r_map, data[4], data[6])
+opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
+
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-
     for i in range(300):
-        data = iterator.get_next()
-        FT = first_layers(data[0][:, 0], data[0][:, 5])
-        p_pos, r_map = rpn(FT)
+        sess.run(opt)
 
 
 
