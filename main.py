@@ -2,214 +2,201 @@ import tensorflow as tf
 import constants as const
 
 
-def make_data(fn):
-    with open('lists/' + fn, 'r') as f:
-        fns = f.readlines()
-    fns = [const.data_path + fn.strip() + ".tfrecord" for fn in fns]
-    data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
-    data = data.map(decode, num_parallel_calls=8)
-    print("Disables shuffle buffer")
-    # data = data.shuffle(256)
-    data = data.repeat()
-    data = data.batch(const.BS)
-    data = data.prefetch(4)
-    iterator = data.make_one_shot_iterator()
+class FltRPN:
+    def make_data(self, fn):
+        with open('lists/' + fn, 'r') as f:
+            fns = f.readlines()
+        fns = [const.data_path + fn.strip() + ".tfrecord" for fn in fns]
+        data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
+        data = data.map(self.decode, num_parallel_calls=8)
+        print("Disables shuffle buffer")
+        # data = data.shuffle(256)
+        data = data.repeat()
+        data = data.batch(const.BS)
+        data = data.prefetch(4)
 
-    return iterator
+        return data
 
+    def decode(self, example):
+        stuff = tf.parse_single_example(example, features={
+            'images': tf.FixedLenFeature([], tf.string),
+            'zmaps': tf.FixedLenFeature([], tf.string),
+            'segs': tf.FixedLenFeature([], tf.string),
+            'voxel': tf.FixedLenFeature([], tf.string),
+            'obj1': tf.FixedLenFeature([], tf.string),
+            'obj2': tf.FixedLenFeature([], tf.string),
+            'bbox1': tf.FixedLenFeature([], tf.string),
+            'bbox2': tf.FixedLenFeature([], tf.string),
+            'pos_equal_one': tf.FixedLenFeature([], tf.string),
+            'neg_equal_one': tf.FixedLenFeature([], tf.string),
+            'anchor_reg': tf.FixedLenFeature([], tf.string),
+        })
 
-def decode(example):
-    stuff = tf.parse_single_example(example, features={
-        'images': tf.FixedLenFeature([], tf.string),
-        'zmaps': tf.FixedLenFeature([], tf.string),
-        'segs': tf.FixedLenFeature([], tf.string),
-        'voxel': tf.FixedLenFeature([], tf.string),
-        'obj1': tf.FixedLenFeature([], tf.string),
-        'obj2': tf.FixedLenFeature([], tf.string),
-        'bbox1': tf.FixedLenFeature([], tf.string),
-        'bbox2': tf.FixedLenFeature([], tf.string),
-        'pos_equal_one': tf.FixedLenFeature([], tf.string),
-        'neg_equal_one': tf.FixedLenFeature([], tf.string),
-        'anchor_reg': tf.FixedLenFeature([], tf.string),
-    })
+        N = 54
+        images = tf.decode_raw(stuff['images'], tf.float32)
+        images = tf.reshape(images, (N, const.Hdata, const.Wdata, 4))
+        images = tf.slice(images, [0, 0, 0, 0], [-1, -1, -1, 3])
 
-    N = 54
-    images = tf.decode_raw(stuff['images'], tf.float32)
-    images = tf.reshape(images, (N, const.Hdata, const.Wdata, 4))
-    images = tf.slice(images, [0, 0, 0, 0], [-1, -1, -1, 3])
+        voxel = tf.decode_raw(stuff['voxel'], tf.float32)
+        voxel = tf.reshape(voxel, (128, 128, 128))
 
-    voxel = tf.decode_raw(stuff['voxel'], tf.float32)
-    voxel = tf.reshape(voxel, (128, 128, 128))
+        bbox1 = tf.decode_raw(stuff['bbox1'], tf.int64)
+        bbox1 = tf.reshape(bbox1, (2, 3))
 
-    bbox1 = tf.decode_raw(stuff['bbox1'], tf.int64)
-    bbox1 = tf.reshape(bbox1, (2, 3))
+        bbox2 = tf.decode_raw(stuff['bbox2'], tf.int64)
+        bbox2 = tf.reshape(bbox2, (2, 3))
 
-    bbox2 = tf.decode_raw(stuff['bbox2'], tf.int64)
-    bbox2 = tf.reshape(bbox2, (2, 3))
+        pos_equal_one = tf.cast(tf.decode_raw(stuff['pos_equal_one'], tf.int64), tf.float32)
+        pos_equal_one = tf.reshape(pos_equal_one, (32, 32))
 
-    pos_equal_one = tf.cast(tf.decode_raw(stuff['pos_equal_one'], tf.int64), tf.float32)
-    pos_equal_one = tf.reshape(pos_equal_one, (32, 32))
+        neg_equal_one = tf.cast(tf.decode_raw(stuff['neg_equal_one'], tf.int64), tf.float32)
+        neg_equal_one = tf.reshape(neg_equal_one, (32, 32))
 
-    neg_equal_one = tf.cast(tf.decode_raw(stuff['neg_equal_one'], tf.int64), tf.float32)
-    neg_equal_one = tf.reshape(neg_equal_one, (32, 32))
+        anchor_reg = tf.cast(tf.decode_raw(stuff['anchor_reg'], tf.int64), tf.float32)
+        anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
 
-    anchor_reg = tf.cast(tf.decode_raw(stuff['anchor_reg'], tf.int64), tf.float32)
-    anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
+        return images, voxel, bbox1, bbox2, pos_equal_one, neg_equal_one, anchor_reg
 
-    return images, voxel, bbox1, bbox2, pos_equal_one, neg_equal_one, anchor_reg
+    def first_layers(self, data_0, data_90):
+        # Image from 0 degree
+        with tf.name_scope('projection_0'):
+            x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+            x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+            x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
 
+            # Image from 90 degree
+        with tf.name_scope('projection_90'):
+            x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+            x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
+            x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-def draw_bbox(voxels, bbox):
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)):(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)):(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)), (bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)):(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)):(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2))] = 1
+        with tf.name_scope('merge_3D'):
+            FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
+            FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
 
-    voxels[(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)):(bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)):(bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)):(bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)):(bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2))] = 1
+        # tf.summary.image('data_0', data_0)
+        # tf.summary.image('data_90', data_90)
 
-    voxels[(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2)):(bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)), (bbox[0][1] + int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2)):(bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] + int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2)):(bbox[0][2] + int(bbox[1][2] / 2))] = 1
-    voxels[(bbox[0][0] - int(bbox[1][0] / 2)), (bbox[0][1] - int(bbox[1][1] / 2)), (bbox[0][2] - int(bbox[1][2] / 2)):(bbox[0][2] + int(bbox[1][2] / 2))] = 1
+        return FT
 
+    def rpn(self, fl_input):
+        with tf.name_scope('rpn'):
+            with tf.name_scope('conv3D'):
+                temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(1, 1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
 
-def first_layers(data_0, data_90):
-    # Image from 0 degree
-    with tf.name_scope('projection_0'):
-        x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+                temp_conv = tf.transpose(temp_conv, perm=[0, 2, 3, 4, 1])
+                temp_conv = tf.reshape(temp_conv, [-1, temp_conv.shape[1], temp_conv.shape[2], (temp_conv.shape[3]*temp_conv.shape[4])])
+            with tf.name_scope('block1'):
+                # block1:
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                deconv1 = tf.layers.conv2d_transpose(temp_conv, 256, 3, strides=(1, 1), padding="same")
+            with tf.name_scope('block2'):
+                # block2:
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                deconv2 = tf.layers.conv2d_transpose(temp_conv, 256, 2, strides=(2, 2), padding="same")
+            with tf.name_scope('block3'):
+                # block3:
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
+                deconv3 = tf.layers.conv2d_transpose(temp_conv, 256, 4, strides=(4, 4), padding="SAME")
 
-        # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        # x_0 = tf.layers.conv2d(x_0, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        # x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
+            # final:
+            temp_conv = tf.concat([deconv3, deconv2, deconv1], -1)
+            p_map = tf.layers.conv2d(temp_conv, 1, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+            r_map = tf.layers.conv2d(temp_conv, 6, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
+            p_pos = tf.sigmoid(p_map)
+            self.summary_p_pos = tf.summary.image('p_pos', tf.expand_dims(p_pos[0], axis=0))
+            p_pos = tf.reshape(p_pos, (-1, 32, 32))
 
-        # Image from 90 degree
-    with tf.name_scope('projection_90'):
-        x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
+        return p_pos, r_map
 
-        # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        # x_90 = tf.layers.conv2d(x_90, filters=64, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
-        # x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
-    with tf.name_scope('merge_3D'):
-        FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
-        FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
+    def smooth_l1(self, deltas, targets, sigma=3.0):
+        sigma2 = sigma * sigma
+        diffs = tf.subtract(deltas, targets)
+        smooth_l1_signs = tf.cast(tf.less(tf.abs(diffs), 1.0 / sigma2), tf.float32)
 
-    tf.summary.image('data_0', data_0)
-    tf.summary.image('data_90', data_90)
+        smooth_l1_option1 = tf.multiply(diffs, diffs) * 0.5 * sigma2
+        smooth_l1_option2 = tf.abs(diffs) - 0.5 / sigma2
+        smooth_l1_add = tf.multiply(smooth_l1_option1, smooth_l1_signs) + \
+            tf.multiply(smooth_l1_option2, 1 - smooth_l1_signs)
+        smooth_l1 = smooth_l1_add
 
-    return FT
+        return smooth_l1
 
+    def calc_loss(self, p_pos, r_map, pos_equal_one, anchors_reg):
+        pos_equal_one_sum = tf.reduce_sum(pos_equal_one, axis=[1, 2])
+        neg_equal_one_sum = tf.reduce_sum(1 - pos_equal_one, axis=[1, 2])
+        cls_pos_loss = (-pos_equal_one * tf.log(p_pos + 1e-6)) / tf.reshape(pos_equal_one_sum, [-1, 1, 1])
+        cls_neg_loss = (-(1 - pos_equal_one) * tf.log(1 - p_pos + 1e-6)) / tf.reshape(neg_equal_one_sum, [-1, 1, 1])
+        loss_prob = tf.reduce_sum(cls_pos_loss + cls_neg_loss) / const.BS
 
-def rpn(fl_input):
-    with tf.name_scope('rpn'):
-        with tf.name_scope('conv3D'):
-            temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(1, 1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv3d(temp_conv, 64, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
+        pos_equal_one_expanded = tf.expand_dims(pos_equal_one, 3)
+        r_map_mask = tf.tile(pos_equal_one_expanded, [1, 1, 1, 6])
+        loss_reg = tf.reduce_sum(self.smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
 
-            temp_conv = tf.transpose(temp_conv, perm=[0, 2, 3, 4, 1])
-            temp_conv = tf.reshape(temp_conv, [-1, temp_conv.shape[1], temp_conv.shape[2], (temp_conv.shape[3]*temp_conv.shape[4])])
-        with tf.name_scope('block1'):
-            # block1:
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            deconv1 = tf.layers.conv2d_transpose(temp_conv, 256, 3, strides=(1, 1), padding="same")
-        with tf.name_scope('block2'):
-            # block2:
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 128, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            deconv2 = tf.layers.conv2d_transpose(temp_conv, 256, 2, strides=(2, 2), padding="same")
-        with tf.name_scope('block3'):
-            # block3:
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(2, 2), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            temp_conv = tf.layers.conv2d(temp_conv, 256, 3, strides=(1, 1), activation=tf.nn.relu, padding="same")
-            deconv3 = tf.layers.conv2d_transpose(temp_conv, 256, 4, strides=(4, 4), padding="SAME")
+        loss = loss_prob + loss_reg
+        self.summary_pos_equal_one = tf.summary.image('real_pos', tf.expand_dims(tf.expand_dims(pos_equal_one[0], 2), 0))
+        self.summary_loss = tf.summary.scalar('loss', loss)
+        self.summary_loss_prob = tf.summary.scalar('loss_prob', loss_prob)
+        self.summary_loss_reg = tf.summary.scalar('loss_reg', loss_reg)
 
-        # final:
-        temp_conv = tf.concat([deconv3, deconv2, deconv1], -1)
-        # Probability score map, scale = [None, 200/100, 176/120, 2]
-        p_map = tf.layers.conv2d(temp_conv, 1, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
-        # Regression(residual) map, scale = [None, 200/100, 176/120, 14]
-        r_map = tf.layers.conv2d(temp_conv, 6, 1, strides=(1, 1), activation=tf.nn.relu, padding="valid")
-        p_pos = tf.sigmoid(p_map)
-        tf.summary.image('p_pos', p_pos)
-        p_pos = tf.reshape(p_pos, (-1, 32, 32))
+        return loss
 
-    return p_pos, r_map
+    def train_step(self, data):
+        with tf.name_scope('train'):
+            FT = self.first_layers(data[0][:, 0], data[0][:, 5])
+            p_pos, r_map = self.rpn(FT)
+            loss = self.calc_loss(p_pos, r_map, data[4], data[6])
+        with tf.name_scope('optimize'):
+            opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
 
-
-def smooth_l1(deltas, targets, sigma=3.0):
-    sigma2 = sigma * sigma
-    diffs = tf.subtract(deltas, targets)
-    smooth_l1_signs = tf.cast(tf.less(tf.abs(diffs), 1.0 / sigma2), tf.float32)
-
-    smooth_l1_option1 = tf.multiply(diffs, diffs) * 0.5 * sigma2
-    smooth_l1_option2 = tf.abs(diffs) - 0.5 / sigma2
-    smooth_l1_add = tf.multiply(smooth_l1_option1, smooth_l1_signs) + \
-        tf.multiply(smooth_l1_option2, 1 - smooth_l1_signs)
-    smooth_l1 = smooth_l1_add
-
-    return smooth_l1
-
-
-def calc_loss(p_pos, r_map, pos_equal_one, anchors_reg):
-    pos_equal_one_sum = tf.reduce_sum(pos_equal_one, axis=[1, 2])
-    neg_equal_one_sum = tf.reduce_sum(1 - pos_equal_one, axis=[1, 2])
-    cls_pos_loss = (-pos_equal_one * tf.log(p_pos + 1e-6)) / tf.reshape(pos_equal_one_sum, [-1, 1, 1])
-    cls_neg_loss = (-(1 - pos_equal_one) * tf.log(1 - p_pos + 1e-6)) / tf.reshape(neg_equal_one_sum, [-1, 1, 1])
-    loss_prob = tf.reduce_sum(cls_pos_loss + cls_neg_loss) / const.BS
-
-    pos_equal_one_expanded = tf.expand_dims(pos_equal_one, 3)
-    r_map_mask = tf.tile(pos_equal_one_expanded, [1, 1, 1, 6])
-    loss_reg = tf.reduce_sum(smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
-
-    loss = loss_prob + loss_reg
-    tf.summary.image('real_pos', tf.expand_dims(pos_equal_one, 3))
-    tf.summary.scalar('loss', loss)
-    tf.summary.scalar('loss_prob', loss_prob)
-    tf.summary.scalar('loss_reg', loss_reg)
-
-    return loss
+        return opt, loss
 
 
-iterator = make_data('double_train')
+    def go(self):
+        train_data = self.make_data('double_train')
+        val_data = self.make_data('double_val')
+        handle = tf.placeholder(tf.string, shape=[])
+        iterator = tf.data.Iterator.from_string_handle(handle, train_data.output_types, train_data.output_shapes)
+        next_element = iterator.get_next()
 
-data = iterator.get_next()
-FT = first_layers(data[0][:, 0], data[0][:, 5])
-p_pos, r_map = rpn(FT)
-with tf.name_scope('loss'):
-    loss = calc_loss(p_pos, r_map, data[4], data[6])
-with tf.name_scope('train'):
-    opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
+        training_iterator = train_data.make_one_shot_iterator()
+        validation_iterator = val_data.make_one_shot_iterator()
 
-merged_summary = tf.summary.merge_all()
-writer = tf.summary.FileWriter('log')
+        opt, loss = self.train_step(next_element)
+        merged_summary = tf.summary.merge_all()
+        self.train_writer = tf.summary.FileWriter('log/train')
+        # merged_val = tf.summary.merge([self.summary_loss, self.summary_loss_prob, self.summary_loss_reg, self.summary_p_pos, self.summary_pos_equal_one])
+        self.val_writer = tf.summary.FileWriter('log/val')
 
-with tf.Session() as sess:
-    # writer.add_graph(sess.graph)
-    sess.run(tf.global_variables_initializer())
-    for i in range(300):
-        if i%const.valp == 0:
-            s = sess.run(merged_summary)
-            writer.add_summary(s, i)
-        sess.run(opt)
-        print(i)
+        with tf.Session() as sess:
+            self.train_writer.add_graph(sess.graph)
+            sess.run(tf.global_variables_initializer())
+            training_handle = sess.run(training_iterator.string_handle())
+            validation_handle = sess.run(validation_iterator.string_handle())
+            for i in range(20):
+                s, _ = sess.run([merged_summary, opt], feed_dict={handle: training_handle})
+                self.train_writer.add_summary(s, i)
+                print(i)
+                if i%const.valp == 0:
+                    v, _ = sess.run([merged_summary, loss], feed_dict={handle: validation_handle})
+
+                    self.val_writer.add_summary(v, i)
 
 
-
+R = FltRPN()
+R.go()
