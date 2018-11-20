@@ -4,4 +4,7 @@
 2] wrapper.py calls rendering_script.py multiple times to generate images with different configurations
 Bugs to fix: there is some wierd error at the end of execution each call of rendering_script.py and it happens during transfer of control between wrapper.py and rendering_script.py[have to fix this]
 
+call wrapper.py as python wrapper.py num
+where, num is the number of different configurations of the blender 3D-world.
+
 
