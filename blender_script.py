@@ -2,6 +2,7 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
+import pdb
 
 def check_intersect(obj1, obj2):
     flag = True
@@ -62,7 +63,9 @@ for i in range(100):
 obj_paths = pd.read_csv('/home/neeraj/Documents/3D_PROJECT/3DRPN/paths.csv')
 N = len(obj_paths['PATHS'])
 path = '/home/neeraj/Documents/3D_PROJECT/3DRPN/mugs/'
-
+#pdb.set_trace()
+locs = []
+dims = [] 
 for i in range(25):
     r = np.random.randint(N)
     print("Adding:", obj_paths['PATHS'][r])
@@ -71,6 +74,16 @@ for i in range(25):
     bpy.ops.object.join()
     bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
     traslate_obj(9 , 0.1)
+    
+
+for ref in bpy.data.objects:
+    if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
+        pass
+    else:
+        locs.append([ref.location.x,ref.location.y,ref.location.z])
+        dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
+
+np.savez_compressed('Bbox_coordinates.npz',locs=locs,dims=dims)
 
 
 bpy.ops.mesh.primitive_plane_add()
