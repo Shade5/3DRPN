@@ -1,0 +1,6 @@
+to run the blender without using gui
+
+
+../../BLENDER/blender create_data.blend --background --python blender_script.py
+
+
