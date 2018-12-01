@@ -138,19 +138,27 @@ if num_lamps == 2:
 
 from math import radians
 
-stepsize = 360.0 / rot_step_size
-rotation_mode = 'XY'
+#stepsize = 360.0 / rot_step_size
+#rotation_mode = 'XY'
 
 
+cam.location = (12, 0, 0)
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
+bpy.ops.render.render(write_still=True)  # render still
 
-for i in range(0, 18):
-	for j in range(3):
+cam.location = (0, 12, 0)
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_90'
+bpy.ops.render.render(write_still=True)  # render still
+
+
+#for i in range(0, 18):
+#	for j in range(3):
 		
-		print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
+		#print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
 
 
-		bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03d}'.format(int(i * stepsize))
+		#bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03d}'.format(int(i * stepsize))
 		
-		bpy.ops.render.render(write_still=True)  # render still
-	b_empty.rotation_euler[2] += radians(stepsize)
+		#bpy.ops.render.render(write_still=True)  # render still
+	#b_empty.rotation_euler[2] += radians(stepsize)
 
