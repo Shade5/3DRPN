@@ -16,6 +16,7 @@ os.mkdir(DATA_DIR)
 for i in range(num_files):
 	num_lamps = np.random.choice([1,2],p=[0.4,0.6])
 	num_mugs = np.random.choice(10)
+	num_mugs += 1
 	rot_step_size = 30
 	
 	image_dir = cwd + 'DATA/' + '%d'%(i)
