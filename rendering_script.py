@@ -45,6 +45,8 @@ def traslate_obj(translate_scale, scale_scale):
 		if not intersect:
 			break
 
+
+
 #for rotation
 def parent_obj_to_camera(b_camera):
 	origin = (0, 0, 0)
@@ -58,20 +60,15 @@ def parent_obj_to_camera(b_camera):
 	return b_empty
 
 
-
-
 ##command line arguments
-print('\n in the rendering script\n')
-print(sys.argv)
-
 
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
 rot_step_size = int(sys.argv[-3])
 image_dir = sys.argv[-2]
 save_file_name = sys.argv[-1]
-elevations = np.random.choice([1,1.5,2,2.5,3,3.5,4,4.5],size=3)
-
+#elevations = np.random.choice([1,1.5,2,2.5,3,3.5,4,4.5],size=3)
+#elevations = [0,10,20]
 
 #paths
 obj_paths = pd.read_csv('/home/neeraj/Documents/3D_PROJECT/3DRPN/paths.csv')
@@ -136,22 +133,46 @@ if num_lamps == 2:
 	# And finally select it make active
 	lamp_object.select = True
 
+import math
 from math import radians
+HV = 18
+VV = 3
+MINH = 0
+MAXH = 360 
+MINV = 1
+MAXV = 31 
+HDELTA = (MAXH-MINH) / HV #20
+VDELTA = (MAXV-MINV) / VV #10
 
-stepsize = 360.0 / rot_step_size
+
+
+def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
+    phi = float(elevation_deg) / 180 * math.pi
+    theta = float(azimuth_deg) / 180 * math.pi
+    x = (dist * math.cos(theta) * math.cos(phi))
+    y = (dist * math.sin(theta) * math.cos(phi))
+    z = (dist * math.sin(phi))
+    return (x, y, z)
+
+stepsize = HDELTA
 rotation_mode = 'XY'
 
 
+radius = 10
+camera_azimuth_angle = MINH
+for i in range(HV):
+	 
+	camera_elevation_angle = MINV
+	for j in range(VV):
+		
+		x,y,z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
+		print("Height angle {},Rotation angle{}".format(j*VDELTA,i*HDELTA))
 
-for i in range(0, 18):
-	for j in range(3):
-		z = elevations[j]
-		print("Height {},Rotation {}, {}".format(z,(stepsize * i), radians(stepsize * i)))
-
-		cam.location = (8,-8,z)
-
-		bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03d}_height_{1:01f}'.format(int(i * stepsize),z)
+		cam.location = (x,y,z)
+		#cam.rotation_euler = (radians(63.6), 0.0, radians(46.7))
+		bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03f}_height_{1:01f}'.format(i*HDELTA,j*VDELTA)
 		
 		bpy.ops.render.render(write_still=True)  # render still
+		camera_elevation_angle += VDELTA
+	camera_azimuth_angle += HDELTA
 	b_empty.rotation_euler[2] += radians(stepsize)
-
