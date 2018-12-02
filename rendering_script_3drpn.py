@@ -140,6 +140,8 @@ from math import radians
 
 #stepsize = 360.0 / rot_step_size
 #rotation_mode = 'XY'
+
+#for getting square renders
 render = scene.render
 render.resolution_x = 1080
 render.resolution_y = 1080
