@@ -140,7 +140,9 @@ from math import radians
 
 #stepsize = 360.0 / rot_step_size
 #rotation_mode = 'XY'
-
+render = scene.render
+render.resolution_x = 1080
+render.resolution_y = 1080
 
 cam.location = (12, 0, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
