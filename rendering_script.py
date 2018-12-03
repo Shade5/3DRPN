@@ -133,6 +133,11 @@ if num_lamps == 2:
 	# And finally select it make active
 	lamp_object.select = True
 
+render = scene.render
+render.resolution_x = 1080
+render.resolution_y = 1080
+
+
 import math
 from math import radians
 HV = 18
@@ -158,7 +163,7 @@ stepsize = HDELTA
 rotation_mode = 'XY'
 
 
-radius = 10
+radius = np.random.choice([8,9,10,11])
 camera_azimuth_angle = MINH
 for i in range(HV):
 	 
