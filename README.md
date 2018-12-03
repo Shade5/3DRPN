@@ -7,8 +7,8 @@ This repo also contains to generate renders using ShapeNet data. The script crea
 
 ToDo:
 
-1] Code to generate depth maps 
-2] Code to generate voxel representation
-3] Add non-max suppression
+1] Code to generate depth maps <br />
+2] Code to generate voxel representation<br />
+3] Add non-max suppression<br />
 
 
