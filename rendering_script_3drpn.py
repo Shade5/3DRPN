@@ -28,7 +28,7 @@ def traslate_obj(translate_scale, scale_scale):
 		print("Testing:",  x.name)
 		x.location = initial_location
 		x.scale = initial_scale
-		s = scale_scale*np.random.rand(1) + 2.4
+		s = scale_scale*np.random.rand(1) + 3.2
 		bpy.ops.transform.resize(value=(s, s, s))
 		t = translate_scale*(np.random.rand(3, 1) - 0.5)
 		r = np.pi * np.random.rand(1)

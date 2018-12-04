@@ -66,7 +66,7 @@ path = '/home/neeraj/Documents/3D_PROJECT/3DRPN/mugs/'
 #pdb.set_trace()
 locs = []
 dims = [] 
-for i in range(25):
+for i in range(5):
     r = np.random.randint(N)
     print("Adding:", obj_paths['PATHS'][r])
     bpy.ops.import_scene.obj(filepath=path + obj_paths['PATHS'][r] + '/models/model_normalized.obj')
@@ -76,14 +76,6 @@ for i in range(25):
     traslate_obj(9 , 0.1)
     
 
-for ref in bpy.data.objects:
-    if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
-        pass
-    else:
-        locs.append([ref.location.x,ref.location.y,ref.location.z])
-        dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
-
-np.savez_compressed('Bbox_coordinates.npz',locs=locs,dims=dims)
 
 
 bpy.ops.mesh.primitive_plane_add()
