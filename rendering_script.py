@@ -67,8 +67,7 @@ num_mugs = int(sys.argv[-4])
 rot_step_size = int(sys.argv[-3])
 image_dir = sys.argv[-2]
 save_file_name = sys.argv[-1]
-#elevations = np.random.choice([1,1.5,2,2.5,3,3.5,4,4.5],size=3)
-#elevations = [0,10,20]
+
 
 #paths
 obj_paths = pd.read_csv('/home/neeraj/Documents/3D_PROJECT/3DRPN/paths.csv')
@@ -84,6 +83,20 @@ for i in range(num_mugs):
 	bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
 	traslate_obj(9 , 0.1)
 
+bpy.ops.mesh.primitive_plane_add()
+bpy.context.active_object.name = "ground_plane"
+bpy.data.objects['ground_plane'].location = [0, 0, 0]
+bpy.ops.transform.resize(value=(5, 5, 1))
+
+
+scene = bpy.context.scene
+render = scene.render
+res_x = render.resolution_x = 1080
+res_y  = render.resolution_y = 1080
+render_scale = scene.render.resolution_percentage / 100
+res_x = res_x * render_scale
+res_y = res_y *render_scale
+
 locs = []
 dims = []
 for ref in bpy.data.objects:
@@ -93,17 +106,19 @@ for ref in bpy.data.objects:
 		locs.append([ref.location.x,ref.location.y,ref.location.z])
 		dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
 
+ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
+add_x, add_y = ground_x/2, ground_y/2
+scale_x = res_x/ground_x
+scale_y = res_y/ground_y
+
+for i in range(len(locs)):
+	locs[i] = [(locs[i][0] + add_x)*scale_x, (locs[i][1] + add_y)*scale_y, locs[i][2]]
+	dims[i] = [dims[i][0]*scale_x, dims[i][1]*scale_y, dims[i][2]]
+
 np.savez_compressed(save_file_name,locs=locs,dims=dims)
 
 
 
-bpy.ops.mesh.primitive_plane_add()
-bpy.context.active_object.name = "ground_plane"
-bpy.data.objects['ground_plane'].location = [0, 0, 0]
-bpy.ops.transform.resize(value=(5, 5, 1))
-
-
-scene = bpy.context.scene
 cam = scene.objects['Camera']
 cam.location = (8, -8, 0)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
@@ -133,9 +148,6 @@ if num_lamps == 2:
 	# And finally select it make active
 	lamp_object.select = True
 
-render = scene.render
-render.resolution_x = 1080
-render.resolution_y = 1080
 
 
 import math

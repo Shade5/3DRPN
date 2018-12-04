@@ -61,9 +61,6 @@ def parent_obj_to_camera(b_camera):
 
 
 ##command line arguments
-print('\n in the rendering script\n')
-print(sys.argv)
-
 
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
@@ -107,6 +104,36 @@ bpy.ops.transform.resize(value=(5, 5, 1))
 
 
 scene = bpy.context.scene
+render = scene.render
+res_x = render.resolution_x = 1080
+res_y  = render.resolution_y = 1080
+render_scale = scene.render.resolution_percentage / 100
+res_x = res_x * render_scale
+res_y = res_y *render_scale
+
+locs = []
+dims = []
+for ref in bpy.data.objects:
+	if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
+		pass
+	else:
+		locs.append([ref.location.x,ref.location.y,ref.location.z])
+		dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
+
+ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
+add_x, add_y = ground_x/2, ground_y/2
+scale_x = res_x/ground_x
+scale_y = res_y/ground_y
+
+for i in range(len(locs)):
+	locs[i] = [(locs[i][0] + add_x)*scale_x, (locs[i][1] + add_y)*scale_y, locs[i][2]]
+	dims[i] = [dims[i][0]*scale_x, dims[i][1]*scale_y, dims[i][2]]
+
+np.savez_compressed(save_file_name,locs=locs,dims=dims)
+
+
+
+
 cam = scene.objects['Camera']
 cam.location = (8, -8, 1)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
@@ -138,13 +165,6 @@ if num_lamps == 2:
 
 from math import radians
 
-#stepsize = 360.0 / rot_step_size
-#rotation_mode = 'XY'
-
-#for getting square renders
-render = scene.render
-render.resolution_x = 1080
-render.resolution_y = 1080
 
 cam.location = (12, 0, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
@@ -155,14 +175,4 @@ bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_90'
 bpy.ops.render.render(write_still=True)  # render still
 
 
-#for i in range(0, 18):
-#	for j in range(3):
-		
-		#print("Rotation {}, {}".format((stepsize * i), radians(stepsize * i)))
-
-
-		#bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03d}'.format(int(i * stepsize))
-		
-		#bpy.ops.render.render(write_still=True)  # render still
-	#b_empty.rotation_euler[2] += radians(stepsize)
 
