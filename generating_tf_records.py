@@ -99,7 +99,7 @@ def get_regression_deltas(pos_equal_one, bboxes, anchor_size, scale_reduction):
     		dist = np.linalg.norm(np.array(bboxes[i][0], bboxes[i][1]) - np.array(X_Idx[i], Y_Idx[i]))
     		distances.append(dist)
     	min_idx = np.min(distances)
-    	anchor_reg[X_Idx[i], Y_Idx[i], :] = np.array((bboxes[min_idx])) - np.array((X_Idx[i], _, Y_Idx[i], anchor_size, anchor_size, anchor_size))
+    	anchor_reg[X_Idx[i], Y_Idx[i], :] = np.array((bboxes[min_idx])) - np.array((X_Idx[i],  Y_Idx[i],_, anchor_size, anchor_size, anchor_size))
     
     return anchor_reg
 
