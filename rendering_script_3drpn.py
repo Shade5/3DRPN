@@ -2,7 +2,6 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
-import pdb
 
 def check_intersect(obj1, obj2):
 	flag = True
@@ -71,9 +70,9 @@ elevations = np.random.choice([1,1.5,2,2.5,3,3.5,4,4.5],size=3)
 
 
 #paths
-obj_paths = pd.read_csv('/home/neeraj/Documents/3D_PROJECT/3DRPN/paths.csv')
+obj_paths = pd.read_csv('/home/a/workspace/katerina/3DRPN/paths.csv')
 N = len(obj_paths['PATHS'])
-path = '/home/neeraj/Documents/3D_PROJECT/3DRPN/mugs/'
+path = '/home/a/workspace/katerina/3DRPN/mugs/'
 
 for i in range(num_mugs):
 	r = np.random.randint(N)
