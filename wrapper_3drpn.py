@@ -1,34 +1,26 @@
 import os
 import shutil
 import numpy as np
-import time
+import constants as const
 
-BLENDER_DIR = '/home/a/workspace/katerina/blender/'
-DATA_DIR = '/home/a/workspace/katerina/3DRPN/DATA/'
-cwd = '/home/a/workspace/katerina/3DRPN/'
+
 num_files = 3
 
-if os.path.isdir(DATA_DIR):
-	shutil.rmtree(DATA_DIR)
-os.mkdir(DATA_DIR)
+if os.path.isdir(const.DATA_DIR):
+	shutil.rmtree(const.DATA_DIR)
+os.mkdir(const.DATA_DIR)
 for i in range(num_files):
 	num_lamps = np.random.choice([1, 2], p=[0.4, 0.6])
 	num_mugs = np.random.randint(2, 6)
 	rot_step_size = 12
 	
-	image_dir = cwd + 'DATA/' + '%d'%(i)
+	image_dir = const.cwd + 'DATA/' + '%d'%(i)
 	if os.path.isdir(image_dir):
 		shutil.rmtree(image_dir)
 	os.mkdir(image_dir)
 	save_file_name = image_dir+'/bboordinates.npz'
-	command = '%sblender create_data.blend --background  --python rendering_script_3drpn.py %d %d %d %s %s'%(BLENDER_DIR, num_lamps, num_mugs, rot_step_size, image_dir, save_file_name)
-	
-	print('\n')
-	print(command)
-	print('\n')
+	command = '%sblender create_data.blend --background  --python rendering_script_3drpn.py %d %d %d %s %s' % (const.BLENDER_DIR, num_lamps, num_mugs, rot_step_size, image_dir, save_file_name)
 	os.system(command)
-	
-	time.sleep(5)
 	
 
 
