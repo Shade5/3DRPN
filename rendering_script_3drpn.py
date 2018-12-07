@@ -2,6 +2,8 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
+import constants as const
+
 
 def check_intersect(obj1, obj2):
 	flag = True
@@ -16,7 +18,7 @@ def check_intersect(obj1, obj2):
 	return flag
 
 
-def traslate_obj(translate_scale, scale_scale):
+def translate_obj(translate_scale, scale_scale):
 	x = bpy.context.scene.objects.active
 	bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
 
@@ -44,8 +46,9 @@ def traslate_obj(translate_scale, scale_scale):
 		if not intersect:
 			break
 
-#for rotation
+
 def parent_obj_to_camera(b_camera):
+	# for rotation
 	origin = (0, 0, 0)
 	b_empty = bpy.data.objects.new("Empty", None)
 	b_empty.location = origin
@@ -57,83 +60,59 @@ def parent_obj_to_camera(b_camera):
 	return b_empty
 
 
-
-
-##command line arguments
-
+# command line arguments
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
 rot_step_size = int(sys.argv[-3])
 image_dir = sys.argv[-2]
 save_file_name = sys.argv[-1]
-elevations = np.random.choice([1,1.5,2,2.5,3,3.5,4,4.5],size=3)
-
+elevations = np.random.choice([1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5], size=3)
 
 #paths
-obj_paths = pd.read_csv('/home/a/workspace/katerina/3DRPN/paths.csv')
+obj_paths = pd.read_csv(const.obj_path_path)
 N = len(obj_paths['PATHS'])
-path = '/home/a/workspace/katerina/3DRPN/mugs/'
 
 for i in range(num_mugs):
 	r = np.random.randint(N)
 	print("Adding:", obj_paths['PATHS'][r])
-	bpy.ops.import_scene.obj(filepath=path + obj_paths['PATHS'][r] + '/models/model_normalized.obj')
+	bpy.ops.import_scene.obj(filepath=const.mugs_path + obj_paths['PATHS'][r] + '/models/model_normalized.obj')
 	bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 	bpy.ops.object.join()
 	bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
-	traslate_obj(9 , 0.1)
+	translate_obj(9, 0.1)
 
-locs = []
-dims = []
-for ref in bpy.data.objects:
-	if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
-		pass
-	else:
-		locs.append([ref.location.x,ref.location.y,ref.location.z])
-		dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
-
-np.savez_compressed(save_file_name,locs=locs,dims=dims)
-
-
-
+# Adding ground plane
 bpy.ops.mesh.primitive_plane_add()
 bpy.context.active_object.name = "ground_plane"
 bpy.data.objects['ground_plane'].location = [0, 0, 0]
 bpy.ops.transform.resize(value=(5, 5, 1))
 
-
+# Rendering
 scene = bpy.context.scene
 render = scene.render
-res_x = render.resolution_x = 1080
-res_y  = render.resolution_y = 1080
-render_scale = scene.render.resolution_percentage / 100
-res_x = res_x * render_scale
-res_y = res_y *render_scale
+res_x = render.resolution_x = const.resolution
+res_y = render.resolution_y = const.resolution
+scene.render.resolution_percentage = 100
 
+ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
+add = ground_x/2
+scale = res_x/ground_x
+
+# Find bounding boxes and save
 locs = []
 dims = []
 for ref in bpy.data.objects:
-	if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
+	if ref.name in ['Camera', 'Lamp', 'New Lamp', 'ground_plane']:
 		pass
 	else:
-		locs.append([ref.location.x,ref.location.y,ref.location.z])
-		dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
+		locs.append([(ref.location.x + add)*scale, (ref.location.y + add)*scale, (ref.location.z + add)*scale])
+		# Object is rotated along X axis by 90 by default, thus the dimensions along x and y are flipped
+		dims.append([ref.dimensions.x*scale, ref.dimensions.z*scale, ref.dimensions.y*scale])
 
-ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
-add_x, add_y = ground_x/2, ground_y/2
-scale_x = res_x/ground_x
-scale_y = res_y/ground_y
-
-for i in range(len(locs)):
-	locs[i] = [(locs[i][0] + add_x)*scale_x, (locs[i][1] + add_y)*scale_y, locs[i][2]]
-	dims[i] = [dims[i][0]*scale_x, dims[i][1]*scale_y, dims[i][2]]
-
-np.savez_compressed(save_file_name,locs=locs,dims=dims)
-
-
-
+np.savez_compressed(save_file_name, locs=locs, dims=dims)
 
 cam = scene.objects['Camera']
+bpy.data.cameras['Camera'].lens = 22
 cam.location = (8, -8, 1)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
@@ -157,19 +136,16 @@ if num_lamps == 2:
 	# Link lamp object to the scene so it'll appear in this scene
 	scene.objects.link(lamp_object)
 	# Place lamp to a specified location
-	lamp_object.location = (-4.5,-1.69,4.86)
-	########add one two more locations, the other edges of the square
+	lamp_object.location = (-4.5, -1.69, 4.86)
+	# add one two more locations, the other edges of the square
 	# And finally select it make active
 	lamp_object.select = True
 
-from math import radians
-
-
-cam.location = (12, 0, 0)
+cam.location = (0, -12, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
 bpy.ops.render.render(write_still=True)  # render still
 
-cam.location = (0, 12, 0)
+cam.location = (12, 0, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_90'
 bpy.ops.render.render(write_still=True)  # render still
 
