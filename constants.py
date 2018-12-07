@@ -14,3 +14,6 @@ mugs_path = '/home/a/workspace/katerina/3DRPN/mugs/'
 BLENDER_DIR = '/home/a/workspace/katerina/blender/'
 DATA_DIR = '/home/a/workspace/katerina/3DRPN/DATA/'
 cwd = '/home/a/workspace/katerina/3DRPN/'
+anchor_size = 6
+scale_factor = 4
+default_z = 64
