@@ -9,7 +9,7 @@ valp = 5
 
 # Data Generation
 resolution = 128
-obj_path_path = '/home/a/workspace/katerina/3DRPN/paths.csv'
+obj_path_path = '/home/a/workspace/katerina/3DRPN/mugs/paths.csv'
 mugs_path = '/home/a/workspace/katerina/3DRPN/mugs/'
 BLENDER_DIR = '/home/a/workspace/katerina/blender/'
 DATA_DIR = '/home/a/workspace/katerina/3DRPN/DATA/'
