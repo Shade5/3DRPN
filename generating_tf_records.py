@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 import glob
-from box_overlaps import bbox_overlaps
+from util.box_overlaps import bbox_overlaps
 from matplotlib import pyplot as plt
 import shutil
 import constants as const
