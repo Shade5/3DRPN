@@ -45,11 +45,11 @@ def generating_probs_maps(anchor_size, boxes, feature_map_shape, scale_factor):
 
     # add_real_boxes(pos_equal_one, objboxes)
     #
-    plt.imshow(pos_equal_one)
-    plt.show()
-
-    plt.imshow(neg_equal_one)
-    plt.show()
+    # plt.imshow(pos_equal_one)
+    # plt.show()
+    #
+    # plt.imshow(neg_equal_one)
+    # plt.show()
 
     return pos_equal_one.astype(int), neg_equal_one.astype(int)
 
@@ -107,7 +107,7 @@ def controller_for_one_file(file_name):
         l, w, h = dims[j]
         bbox_coordinates.append([x, y, z, l, w, h])
     bbox_coordinates = np.stack(bbox_coordinates)
-    pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates,feature_map_shape, const.scale_factor)
+    pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
     anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
     return images, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg
 
