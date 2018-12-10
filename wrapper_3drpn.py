@@ -4,7 +4,7 @@ import numpy as np
 import constants as const
 
 
-num_files = 8
+num_files = 200
 
 if os.path.isdir(const.DATA_DIR):
 	shutil.rmtree(const.DATA_DIR)
