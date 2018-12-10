@@ -2,6 +2,8 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
+###add path of constants.py here
+#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
 
@@ -37,6 +39,17 @@ def translate_obj(translate_scale, scale_scale):
 		bpy.ops.transform.translate(value=t)
 		bpy.ops.transform.rotate(value=r, axis=(0, 0, 1))
 		intersect = False
+		
+		x_1, x_2 = x.location[0] + x.dimensions[0]/2, x.location[0] - x.dimensions[0]/2
+		y_1, y_2 = x.location[1] + x.dimensions[2]/2, x.location[1] - x.dimensions[2]/2
+
+		if x_1 > 5.0 or x_2 < -5.0:
+			diff = (x_1 - 5.0) if x_1 > 5.0 else (x_2 - (-5))
+			x.location[0] = x.location[0] - diff
+		if y_1 > 5.0 or y_2 < -5.0:
+			diff = (y_1 - 5.0) if y_1 > 5.0 else (y_2 - (-5))
+			x.location[1] = x.location[1] - diff
+
 		for y in bpy.data.objects:
 			if y != x and y.name != 'ground_plane':
 				if check_intersect(x, y):
@@ -61,12 +74,11 @@ def parent_obj_to_camera(b_camera):
 
 
 # command line arguments
-num_lamps = int(sys.argv[-5])
-num_mugs = int(sys.argv[-4])
-rot_step_size = int(sys.argv[-3])
+num_lamps = int(sys.argv[-4])
+num_mugs = int(sys.argv[-3])
 image_dir = sys.argv[-2]
 save_file_name = sys.argv[-1]
-elevations = np.random.choice([1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5], size=3)
+
 
 #paths
 obj_paths = pd.read_csv(const.obj_path_path)
@@ -113,7 +125,7 @@ np.savez_compressed(save_file_name, locs=locs, dims=dims)
 
 cam = scene.objects['Camera']
 bpy.data.cameras['Camera'].lens = 22
-cam.location = (8, -8, 1)
+cam.location = (8, -8, 0)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
