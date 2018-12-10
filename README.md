@@ -2,7 +2,7 @@
 Region proposal network that proposes 3D bounding boxes using two views of
 the world[at 0 and 90 degrees]. 
 
-This repo also contains to generate renders using ShapeNet data. The script creates the 3D world with random number of objects at different scales and locations and also with different lighting conditions. Images are rendered by moving the camera around the entire scene by fixed increments. At each angle of rotation of the camera, images are rendered at 3 different elevation angles. 
+This repo also contains code to generate renders using ShapeNet data/objects. The script creates the 3D world with random number of objects at different scales and locations with different lighting conditions. Images are rendered by moving the camera around the entire scene by fixed increments. At each angle of rotation of the camera, images are rendered at 3 different elevations. 
 
 
 ## Data Generation
@@ -15,7 +15,6 @@ This repo also contains to generate renders using ShapeNet data. The script crea
 
 ## Bugs
 
-* Goes out of bounds sometime
 * Very long bbox appears randomly
 
 ## ToDo:
