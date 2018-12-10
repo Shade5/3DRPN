@@ -1,16 +1,14 @@
 import tensorflow as tf
 import constants as const
+import glob
 
 
 class FltRPN:
-    def make_data(self, fn):
-        with open('lists/' + fn, 'r') as f:
-            fns = f.readlines()
-        fns = [const.data_path + fn.strip() + ".tfrecord" for fn in fns]
+    def make_data(self, fns):
         data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
         data = data.map(self.decode, num_parallel_calls=8)
-        print("Disables shuffle buffer")
-        # data = data.shuffle(256)
+        # print("Disables shuffle buffer")
+        data = data.shuffle(256)
         data = data.repeat()
         data = data.batch(const.BS)
         data = data.prefetch(4)
@@ -20,42 +18,24 @@ class FltRPN:
     def decode(self, example):
         stuff = tf.parse_single_example(example, features={
             'images': tf.FixedLenFeature([], tf.string),
-            'zmaps': tf.FixedLenFeature([], tf.string),
-            'segs': tf.FixedLenFeature([], tf.string),
-            'voxel': tf.FixedLenFeature([], tf.string),
-            'obj1': tf.FixedLenFeature([], tf.string),
-            'obj2': tf.FixedLenFeature([], tf.string),
-            'bbox1': tf.FixedLenFeature([], tf.string),
-            'bbox2': tf.FixedLenFeature([], tf.string),
+            'bboxes': tf.FixedLenFeature([], tf.string),
             'pos_equal_one': tf.FixedLenFeature([], tf.string),
             'neg_equal_one': tf.FixedLenFeature([], tf.string),
-            'anchor_reg': tf.FixedLenFeature([], tf.string),
+            'anchor_reg': tf.FixedLenFeature([], tf.string)
         })
 
-        N = 54
         images = tf.decode_raw(stuff['images'], tf.float32)
-        images = tf.reshape(images, (N, const.Hdata, const.Wdata, 4))
-        images = tf.slice(images, [0, 0, 0, 0], [-1, -1, -1, 3])
+        images = tf.reshape(images, (2, const.resolution, const.resolution, 3))
+        bboxes = tf.decode_raw(stuff['bboxes'], tf.float64)
+        bboxes = tf.reshape(bboxes, (-1, 6))
+        pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
+        pos_equal_one = tf.cast(tf.reshape(pos_equal_one, (32, 32)), tf.float32)
+        neg_equal_one = tf.decode_raw(stuff['neg_equal_one'], tf.int64)
+        neg_equal_one = tf.cast(tf.reshape(neg_equal_one, (32, 32)), tf.float32)
+        anchor_reg = tf.decode_raw(stuff['anchor_reg'], tf.float64)
+        anchor_reg = tf.cast(tf.reshape(anchor_reg, (32, 32, 6)), tf.float32)
 
-        voxel = tf.decode_raw(stuff['voxel'], tf.float32)
-        voxel = tf.reshape(voxel, (128, 128, 128))
-
-        bbox1 = tf.decode_raw(stuff['bbox1'], tf.int64)
-        bbox1 = tf.reshape(bbox1, (2, 3))
-
-        bbox2 = tf.decode_raw(stuff['bbox2'], tf.int64)
-        bbox2 = tf.reshape(bbox2, (2, 3))
-
-        pos_equal_one = tf.cast(tf.decode_raw(stuff['pos_equal_one'], tf.int64), tf.float32)
-        pos_equal_one = tf.reshape(pos_equal_one, (32, 32))
-
-        neg_equal_one = tf.cast(tf.decode_raw(stuff['neg_equal_one'], tf.int64), tf.float32)
-        neg_equal_one = tf.reshape(neg_equal_one, (32, 32))
-
-        anchor_reg = tf.cast(tf.decode_raw(stuff['anchor_reg'], tf.int64), tf.float32)
-        anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
-
-        return images, voxel, bbox1, bbox2, pos_equal_one, neg_equal_one, anchor_reg
+        return images, pos_equal_one, neg_equal_one, anchor_reg
 
     def first_layers(self, data_0, data_90):
         # Image from 0 degree
@@ -71,6 +51,8 @@ class FltRPN:
             x_90 = tf.layers.max_pooling2d(x_90, pool_size=(2, 2), strides=(2, 2), padding='same')
 
         with tf.name_scope('merge_3D'):
+            # x_0[z, x]
+            # x_90[z, y]
             FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
             FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
 
@@ -80,6 +62,7 @@ class FltRPN:
         return FT
 
     def rpn(self, fl_input):
+        # fl_input[batch, z, x, y, c]
         with tf.name_scope('rpn'):
             with tf.name_scope('conv3D'):
                 temp_conv = tf.layers.conv3d(fl_input, 128, 3, strides=(2, 1, 1), activation=tf.nn.relu, padding="same")
@@ -158,18 +141,19 @@ class FltRPN:
 
     def train_step(self, data):
         with tf.name_scope('train'):
-            FT = self.first_layers(data[0][:, 0], data[0][:, 5])
+            FT = self.first_layers(data[0][:, 0], data[0][:, 1])
             p_pos, r_map = self.rpn(FT)
-            loss = self.calc_loss(p_pos, r_map, data[4], data[6])
+            loss = self.calc_loss(p_pos, r_map, data[1], data[3])
         with tf.name_scope('optimize'):
             opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
 
         return opt, loss
 
-
     def go(self):
-        train_data = self.make_data('double_train')
-        val_data = self.make_data('double_val')
+        fns = sorted(glob.glob(const.TF_RECORD_DIR + '*.tfrecord'))
+        print("Number of examples", len(fns))
+        train_data = self.make_data(fns)
+        val_data = self.make_data(fns)
         handle = tf.placeholder(tf.string, shape=[])
         iterator = tf.data.Iterator.from_string_handle(handle, train_data.output_types, train_data.output_shapes)
         next_element = iterator.get_next()
