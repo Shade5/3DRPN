@@ -21,7 +21,8 @@ class FltRPN:
             'bboxes': tf.FixedLenFeature([], tf.string),
             'pos_equal_one': tf.FixedLenFeature([], tf.string),
             'neg_equal_one': tf.FixedLenFeature([], tf.string),
-            'anchor_reg': tf.FixedLenFeature([], tf.string)
+            'anchor_reg': tf.FixedLenFeature([], tf.string),
+            'voxel': tf.FixedLenFeature([], tf.string)
         })
 
         images = tf.decode_raw(stuff['images'], tf.float32)
@@ -34,7 +35,8 @@ class FltRPN:
         neg_equal_one = tf.cast(tf.reshape(neg_equal_one, (32, 32)), tf.float32)
         anchor_reg = tf.decode_raw(stuff['anchor_reg'], tf.float64)
         anchor_reg = tf.cast(tf.reshape(anchor_reg, (32, 32, 6)), tf.float32)
-
+        voxel = tf.decode_raw(stuff['voxel'], tf.float32)
+        voxel = tf.reshape(voxel, (128, 128, 128))
         return images, pos_equal_one, neg_equal_one, anchor_reg
 
     def first_layers(self, data_0, data_90):
