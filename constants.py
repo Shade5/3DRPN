@@ -7,6 +7,19 @@ lr = 5E-5
 mom = 0.9
 valp = 5
 
+#General Parameters
+HV = 18
+VV = 3
+MINH = 0
+MAXH = 360
+MINV = 1
+MAXV = 31
+HDELTA = (MAXH-MINH) / HV #20
+VDELTA = (MAXV-MINV) / VV #10
+
+N = 54
+
+
 # Data Generation
 resolution = 128
 obj_path_path = '/home/a/workspace/katerina/3DRPN/mugs/paths.csv'
