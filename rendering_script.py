@@ -5,7 +5,7 @@ import sys
 import os
 import pdb
 ###add path of constants.py here
-sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
 def check_intersect(obj1, obj2):
