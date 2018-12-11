@@ -2,7 +2,11 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
+import os
 import pdb
+###add path of constants.py here
+sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+import constants as const
 
 def check_intersect(obj1, obj2):
 	flag = True
@@ -17,7 +21,7 @@ def check_intersect(obj1, obj2):
 	return flag
 
 
-def traslate_obj(translate_scale, scale_scale):
+def translate_obj(translate_scale, scale_scale):
 	x = bpy.context.scene.objects.active
 	bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
 
@@ -28,7 +32,7 @@ def traslate_obj(translate_scale, scale_scale):
 		print("Testing:",  x.name)
 		x.location = initial_location
 		x.scale = initial_scale
-		s = scale_scale*np.random.rand(1) + 1.4
+		s = scale_scale*np.random.rand(1) + 3.2
 		bpy.ops.transform.resize(value=(s, s, s))
 		t = translate_scale*(np.random.rand(3, 1) - 0.5)
 		r = np.pi * np.random.rand(1)
@@ -36,6 +40,17 @@ def traslate_obj(translate_scale, scale_scale):
 		bpy.ops.transform.translate(value=t)
 		bpy.ops.transform.rotate(value=r, axis=(0, 0, 1))
 		intersect = False
+
+		x_1, x_2 = x.location[0] + x.dimensions[0]/2, x.location[0] - x.dimensions[0]/2
+		y_1, y_2 = x.location[1] + x.dimensions[2]/2, x.location[1] - x.dimensions[2]/2
+
+		if x_1 > 5.0 or x_2 < -5.0:
+			diff = (x_1 - 5.0) if x_1 > 5.0 else (x_2 - (-5))
+			x.location[0] = x.location[0] - diff
+		if y_1 > 5.0 or y_2 < -5.0:
+			diff = (y_1 - 5.0) if y_1 > 5.0 else (y_2 - (-5))
+			x.location[1] = x.location[1] - diff
+		
 		for y in bpy.data.objects:
 			if y != x and y.name != 'ground_plane':
 				if check_intersect(x, y):
@@ -47,8 +62,9 @@ def traslate_obj(translate_scale, scale_scale):
 
 
 
-#for rotation
+
 def parent_obj_to_camera(b_camera):
+	#for rotation
 	origin = (0, 0, 0)
 	b_empty = bpy.data.objects.new("Empty", None)
 	b_empty.location = origin
@@ -64,62 +80,55 @@ def parent_obj_to_camera(b_camera):
 
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
-rot_step_size = int(sys.argv[-3])
-image_dir = sys.argv[-2]
-save_file_name = sys.argv[-1]
-
+image_dir = sys.argv[-3]
+save_file_name = sys.argv[-2]
+voxel_file_name = sys.argv[-1]
 
 #paths
-obj_paths = pd.read_csv('/home/neeraj/Documents/3D_PROJECT/3DRPN/paths.csv')
+obj_paths = pd.read_csv(const.obj_path_path)
 N = len(obj_paths['PATHS'])
-path = '/home/neeraj/Documents/3D_PROJECT/3DRPN/mugs/'
-
 for i in range(num_mugs):
 	r = np.random.randint(N)
 	print("Adding:", obj_paths['PATHS'][r])
-	bpy.ops.import_scene.obj(filepath=path + obj_paths['PATHS'][r] + '/models/model_normalized.obj')
+	bpy.ops.import_scene.obj(filepath=const.mugs_path + obj_paths['PATHS'][r] + '/models/model_normalized.obj')
 	bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 	bpy.ops.object.join()
 	bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
-	traslate_obj(9 , 0.1)
+	translate_obj(9 , 0.1)
 
+# Adding ground plane
 bpy.ops.mesh.primitive_plane_add()
 bpy.context.active_object.name = "ground_plane"
 bpy.data.objects['ground_plane'].location = [0, 0, 0]
 bpy.ops.transform.resize(value=(5, 5, 1))
 
-
+#Rendering
 scene = bpy.context.scene
 render = scene.render
-res_x = render.resolution_x = 1080
-res_y  = render.resolution_y = 1080
-render_scale = scene.render.resolution_percentage / 100
-res_x = res_x * render_scale
-res_y = res_y *render_scale
+res_x = render.resolution_x = const.resolution
+res_y  = render.resolution_y = const.resolution
+scene.render.resolution_percentage = 100
 
+ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
+add = ground_x/2
+scale = res_x/ground_x
+
+# Find bounding boxes and save
 locs = []
 dims = []
 for ref in bpy.data.objects:
-	if ref.name in ['Camera','Lamp', 'New Lamp','ground_plane']:
-		pass
-	else:
-		locs.append([ref.location.x,ref.location.y,ref.location.z])
-		dims.append([ref.dimensions.x,ref.dimensions.y,ref.dimensions.z])
+		if ref.name in ['Camera', 'Lamp', 'New Lamp', 'ground_plane']:
+				pass
+		else:
+				locs.append([(ref.location.x + add)*scale, (ref.location.y + add)*scale, (ref.location.z + add)*scale])
+				# Object is rotated along X axis by 90 by default, thus the dimensions along x and y are flipped
+				dims.append([ref.dimensions.x*scale, ref.dimensions.z*scale, ref.dimensions.y*scale])
 
-ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
-add_x, add_y = ground_x/2, ground_y/2
-scale_x = res_x/ground_x
-scale_y = res_y/ground_y
-
-for i in range(len(locs)):
-	locs[i] = [(locs[i][0] + add_x)*scale_x, (locs[i][1] + add_y)*scale_y, locs[i][2]]
-	dims[i] = [dims[i][0]*scale_x, dims[i][1]*scale_y, dims[i][2]]
-
-np.savez_compressed(save_file_name,locs=locs,dims=dims)
-
+np.savez_compressed(save_file_name, locs=locs, dims=dims)
 
 
 cam = scene.objects['Camera']
+bpy.data.cameras['Camera'].lens = 22
 cam.location = (8, -8, 0)
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
@@ -143,8 +152,8 @@ if num_lamps == 2:
 	# Link lamp object to the scene so it'll appear in this scene
 	scene.objects.link(lamp_object)
 	# Place lamp to a specified location
-	lamp_object.location = (-4.5,-1.69,4.86)
-	########add one two more locations, the other edges of the square
+	lamp_object.location = (-4.5, -1.69, 4.86)
+	# Add one two more locations, the other edges of the square
 	# And finally select it make active
 	lamp_object.select = True
 
@@ -164,12 +173,12 @@ VDELTA = (MAXV-MINV) / VV #10
 
 
 def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
-    phi = float(elevation_deg) / 180 * math.pi
-    theta = float(azimuth_deg) / 180 * math.pi
-    x = (dist * math.cos(theta) * math.cos(phi))
-    y = (dist * math.sin(theta) * math.cos(phi))
-    z = (dist * math.sin(phi))
-    return (x, y, z)
+	phi = float(elevation_deg) / 180 * math.pi
+	theta = float(azimuth_deg) / 180 * math.pi
+	x = (dist * math.cos(theta) * math.cos(phi))
+	y = (dist * math.sin(theta) * math.cos(phi))
+	z = (dist * math.sin(phi))
+	return (x, y, z)
 
 stepsize = HDELTA
 rotation_mode = 'XY'
@@ -184,12 +193,16 @@ for i in range(HV):
 		
 		x,y,z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
 		print("Height angle {},Rotation angle{}".format(j*VDELTA,i*HDELTA))
-
 		cam.location = (x,y,z)
-		#cam.rotation_euler = (radians(63.6), 0.0, radians(46.7))
 		bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03f}_height_{1:01f}'.format(i*HDELTA,j*VDELTA)
 		
 		bpy.ops.render.render(write_still=True)  # render still
 		camera_elevation_angle += VDELTA
 	camera_azimuth_angle += HDELTA
 	b_empty.rotation_euler[2] += radians(stepsize)
+
+# generating voxel occupancy
+filepath = voxel_file_name + '.obj'
+bpy.ops.export_scene.obj(filepath=filepath)
+command = '%sutil/./binvox -d 128 %s'%(const.cwd, filepath)
+os.system(command)
