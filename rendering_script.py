@@ -2,9 +2,10 @@ import bpy
 import numpy as np
 import pandas as pd
 import sys
+import os
 import pdb
 ###add path of constants.py here
-#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
 def check_intersect(obj1, obj2):
@@ -77,11 +78,11 @@ def parent_obj_to_camera(b_camera):
 
 ##command line arguments
 
-num_lamps = int(sys.argv[-4])
-num_mugs = int(sys.argv[-3])
-image_dir = sys.argv[-2]
-save_file_name = sys.argv[-1]
-
+num_lamps = int(sys.argv[-5])
+num_mugs = int(sys.argv[-4])
+image_dir = sys.argv[-3]
+save_file_name = sys.argv[-2]
+voxel_file_name = sys.argv[-1]
 
 #paths
 obj_paths = pd.read_csv(const.obj_path_path)
@@ -199,3 +200,9 @@ for i in range(HV):
 		camera_elevation_angle += VDELTA
 	camera_azimuth_angle += HDELTA
 	b_empty.rotation_euler[2] += radians(stepsize)
+
+# generating voxel occupancy
+filepath = voxel_file_name + '.obj'
+bpy.ops.export_scene.obj(filepath=filepath)
+command = '%sutil/./binvox -d 128 %s'%(const.cwd, filepath)
+os.system(command)

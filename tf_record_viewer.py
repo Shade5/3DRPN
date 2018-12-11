@@ -3,7 +3,7 @@ import glob
 import constants as const
 import mayavi.mlab
 import numpy as np
-
+import pdb
 
 def make_data(fns):
     data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
@@ -18,11 +18,12 @@ def decode(example):
         'bboxes': tf.FixedLenFeature([], tf.string),
         'pos_equal_one': tf.FixedLenFeature([], tf.string),
         'neg_equal_one': tf.FixedLenFeature([], tf.string),
-        'anchor_reg': tf.FixedLenFeature([], tf.string)
+        'anchor_reg': tf.FixedLenFeature([], tf.string),
+        'voxel': tf.FixedLenFeature([], tf.string)
     })
 
     images = tf.decode_raw(stuff['images'], tf.float32)
-    images = tf.reshape(images, (2, const.resolution, const.resolution, 3))
+    images = tf.reshape(images, (const.N, const.resolution, const.resolution, 3))
     bboxes = tf.decode_raw(stuff['bboxes'], tf.float64)
     bboxes = tf.reshape(bboxes, (-1, 6))
     pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
@@ -31,8 +32,9 @@ def decode(example):
     neg_equal_one = tf.reshape(neg_equal_one, (32, 32))
     anchor_reg = tf.decode_raw(stuff['anchor_reg'], tf.float64)
     anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
-
-    return images, bboxes, pos_equal_one, neg_equal_one, anchor_reg
+    voxel = tf.decode_raw(stuff['voxel'], tf.float32)
+    voxel = tf.reshape(voxel, (128, 128, 128))
+    return images, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel
 
 
 def draw_bbox_reg(center, dimension, A):
@@ -72,6 +74,6 @@ with tf.Session() as sess:
 
     for f in fns:
         print(f)
-        images, bboxes, pos_equal_one, neg_equal_one, anchor_reg = sess.run(iterator.get_next())
+        images, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel = sess.run(iterator.get_next())
         anchors_viewer3D(pos_equal_one, anchor_reg, threshold=0.9, edgecolor=(0, 1, 0))
         mayavi.mlab.show()

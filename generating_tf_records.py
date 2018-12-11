@@ -6,7 +6,9 @@ from util.box_overlaps import bbox_overlaps
 from matplotlib import pyplot as plt
 import shutil
 import constants as const
-
+import sys
+sys.path.append('util/')
+from bv import read_bv
 
 def generating_probs_maps(anchor_size, boxes, feature_map_shape, scale_factor):
     anchor_size_pad = int(anchor_size / 2)
@@ -96,6 +98,7 @@ def controller_for_one_file(file_name):
     images = []
     bbox_coordinates = []
     image_names = glob.glob(file_name + '/*.png')
+    voxel_occ = read_bv(file_name + '/voxel.binvox')
     for j in range(len(image_names)):
         img = plt.imread(image_names[j])[:, :, :3]
         images.append(img)
@@ -109,18 +112,19 @@ def controller_for_one_file(file_name):
     bbox_coordinates = np.stack(bbox_coordinates)
     pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
     anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
-    return images, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg
+    return images, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_occ
 
 
 def generate_tf_records(files, dump_dir):
     for i in range(len(files)):
-        images, bbox_coordinates, pos_equal_one, neg_equal_one, anchor_reg = controller_for_one_file(files[i])
+        images, bbox_coordinates, pos_equal_one, neg_equal_one, anchor_reg, voxel = controller_for_one_file(files[i])
         example = tf.train.Example(features=tf.train.Features(feature={
             'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),
             'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bbox_coordinates.tostring()])),
             'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),
             'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),
             'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),
+            'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel.tostring()])),
         }))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         with tf.python_io.TFRecordWriter(dump_dir+str(i)+'.tfrecord', options=options) as writer:
