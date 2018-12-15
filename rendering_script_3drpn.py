@@ -146,6 +146,7 @@ if num_lamps == 2:
 	lamp_data.energy = 1.0
 	# Create new object with our lamp datablock
 	lamp_object = bpy.data.objects.new(name="New Lamp", object_data=lamp_data)
+	lamp_object.select = False
 	# Link lamp object to the scene so it'll appear in this scene
 	scene.objects.link(lamp_object)
 	# Place lamp to a specified location
@@ -164,9 +165,20 @@ bpy.ops.render.render(write_still=True)  # render still
 
 
 # generating voxel occupancy
-filepath = voxel_file_name + '.obj'
+i = 0
+bpy.data.objects['ground_plane'].select = False
+for k, v in bpy.data.objects.items():
+	if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
+		v.select = True
+		bpy.ops.export_scene.obj(filepath=voxel_file_name + str(i) + '.obj', use_selection=True)
+		command = '%sutil/./binvox -d 128 %s' % (const.cwd, voxel_file_name + str(i) + '.obj')
+		os.system(command)
+		v.select = False
+		i += 1
+
+filepath = voxel_file_name + '_all.obj'
 bpy.ops.export_scene.obj(filepath=filepath)
-command = '%sutil/./binvox -d 128 %s'%(const.cwd, filepath)
+command = '%sutil/./binvox -d 128 %s' % (const.cwd, filepath)
 os.system(command)
 
 
