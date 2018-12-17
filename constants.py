@@ -17,10 +17,12 @@ MAXV = 31
 HDELTA = (MAXH-MINH) / HV #20
 VDELTA = (MAXV-MINV) / VV #10
 
-N = 54
+N = 2
 
 
 # Data Generation
+min_objects = 1
+max_objects = 3
 resolution = 128
 obj_path_path = '/home/a/workspace/katerina/3DRPN/mugs/paths.csv'
 mugs_path = '/home/a/workspace/katerina/3DRPN/mugs/'

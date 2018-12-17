@@ -6,16 +6,16 @@ import sys
 import constants as const
 
 
-num_files = 1
+num_files = 7
 
 if os.path.isdir(const.DATA_DIR):
 	shutil.rmtree(const.DATA_DIR)
 os.mkdir(const.DATA_DIR)
 for i in range(num_files):
 	num_lamps = np.random.choice([1, 2], p=[0.4, 0.6])
-	num_mugs = np.random.randint(2, 8)
+	num_mugs = np.random.randint(const.min_objects, const.max_objects + 1)
 	
-	image_dir = const.cwd + 'DATA/' + '%d'%(i)
+	image_dir = const.cwd + 'DATA/' + '%d' % i
 	if os.path.isdir(image_dir):
 		shutil.rmtree(image_dir)
 	os.mkdir(image_dir)
