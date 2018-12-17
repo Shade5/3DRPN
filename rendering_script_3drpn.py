@@ -4,7 +4,7 @@ import pandas as pd
 import sys
 import os
 ###add path of constants.py here
-#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
 
@@ -166,7 +166,7 @@ bpy.ops.render.render(write_still=True)  # render still
 
 # generating voxel occupancy
 i = 0
-bpy.data.objects['ground_plane'].select = False
+bpy.data.objects['ground_plane'].select = True
 for k, v in bpy.data.objects.items():
 	if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
 		v.select = True
