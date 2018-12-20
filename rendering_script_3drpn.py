@@ -74,6 +74,14 @@ def parent_obj_to_camera(b_camera):
 	return b_empty
 
 
+def render_depth(yes):
+	if yes:
+		tree.links.new(tree.nodes["Render Layers"].outputs["Depth"], tree.nodes["Map Range"].inputs["Value"])
+		tree.links.new(tree.nodes["Map Range"].outputs["Value"], tree.nodes["Composite"].inputs["Image"])
+	else:
+		tree.links.new(tree.nodes["Render Layers"].outputs["Image"], tree.nodes["Composite"].inputs["Image"])
+
+
 # command line arguments
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
@@ -155,12 +163,33 @@ if num_lamps == 2:
 	# And finally select it make active
 	lamp_object.select = True
 
+# Set up rendering of depth map.
+bpy.context.scene.use_nodes = True
+tree = bpy.context.scene.node_tree
+tree.nodes.new('CompositorNodeMapRange')
+# Range of depth (Hacky values set accordind to the location of the cameras for this project)
+tree.nodes["Map Range"].inputs["From Min"].default_value = 7
+tree.nodes["Map Range"].inputs["From Max"].default_value = 17
+
+
+render_depth(False)
+
 cam.location = (0, -12, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
 bpy.ops.render.render(write_still=True)  # render still
 
 cam.location = (12, 0, 0)
 bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_90'
+bpy.ops.render.render(write_still=True)  # render still
+
+render_depth(True)
+
+cam.location = (0, -12, 0)
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/_depth_rotation_0'
+bpy.ops.render.render(write_still=True)  # render still
+
+cam.location = (12, 0, 0)
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/_depth_rotation_90'
 bpy.ops.render.render(write_still=True)  # render still
 
 
