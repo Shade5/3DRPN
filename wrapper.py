@@ -5,7 +5,7 @@ import sys
 #sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
-num_files = 4
+num_files = 10
 
 
 if os.path.isdir(const.DATA_DIR):
@@ -13,7 +13,7 @@ if os.path.isdir(const.DATA_DIR):
 os.mkdir(const.DATA_DIR)
 for i in range(num_files):
 	num_lamps = np.random.choice([1,2],p=[0.4,0.6])
-	num_mugs = np.random.randint(2,8)
+	num_mugs = np.random.randint(const.min_objects,const.max_objects)
 	
 	image_dir = const.cwd + 'DATA/' + '%d'%(i)
 	if os.path.isdir(image_dir):

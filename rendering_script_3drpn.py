@@ -4,7 +4,7 @@ import pandas as pd
 import sys
 import os
 ###add path of constants.py here
-sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
 
@@ -175,21 +175,21 @@ tree.nodes["Map Range"].inputs["From Max"].default_value = 17
 render_depth(False)
 
 cam.location = (0, -12, 0)
-bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_0'
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_0'
 bpy.ops.render.render(write_still=True)  # render still
 
 cam.location = (12, 0, 0)
-bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_90'
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_90'
 bpy.ops.render.render(write_still=True)  # render still
 
 render_depth(True)
 
 cam.location = (0, -12, 0)
-bpy.data.scenes['Scene'].render.filepath = image_dir + '/_depth_rotation_0'
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/depth_0'
 bpy.ops.render.render(write_still=True)  # render still
 
 cam.location = (12, 0, 0)
-bpy.data.scenes['Scene'].render.filepath = image_dir + '/_depth_rotation_90'
+bpy.data.scenes['Scene'].render.filepath = image_dir + '/depth_90'
 bpy.ops.render.render(write_still=True)  # render still
 
 

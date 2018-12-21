@@ -15,6 +15,7 @@ def make_data(fns):
 def decode(example):
     stuff = tf.parse_single_example(example, features={
         'images': tf.FixedLenFeature([], tf.string),
+        'depths': tf.FixedLenFeature([], tf.string),
         'bboxes': tf.FixedLenFeature([], tf.string),
         'pos_equal_one': tf.FixedLenFeature([], tf.string),
         'neg_equal_one': tf.FixedLenFeature([], tf.string),
@@ -26,6 +27,8 @@ def decode(example):
 
     images = tf.decode_raw(stuff['images'], tf.float64)
     images = tf.reshape(images, (const.N, const.resolution, const.resolution, 3))
+    depths = tf.decode_raw(stuff['depths'], tf.float64)
+    depths = tf.reshape(depths, (const.N, const.resolution, const.resolution, 1))
     bboxes = tf.decode_raw(stuff['bboxes'], tf.float64)
     bboxes = tf.reshape(bboxes, (-1, 6))
     pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
@@ -39,7 +42,7 @@ def decode(example):
     voxel = tf.reshape(voxel, (128, 128, 128))
     voxel_obj = tf.decode_raw(stuff['voxel_obj'], tf.int64)
     voxel_obj = tf.reshape(voxel_obj, (const.max_objects, 128, 128, 128))
-    return images, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj
+    return images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj
 
 
 def draw_bbox_reg(center, dimension, A):
@@ -78,8 +81,9 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     for f in fns:
+        
         print("File Name", f)
-        images, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj = sess.run(iterator.get_next())
+        images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj = sess.run(iterator.get_next())
         print("Number of objects", num_obj)
         anchors_viewer3D(pos_equal_one, anchor_reg, threshold=0.9, edgecolor=(0, 1, 0))
         mayavi.mlab.show()

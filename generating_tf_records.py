@@ -1,7 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import os
+import re
 import glob
+import pdb
 from util.box_overlaps import bbox_overlaps
 from matplotlib import pyplot as plt
 import shutil
@@ -92,12 +94,29 @@ def get_regression_deltas(pos_equal_one, bboxes, anchor_size, scale):
     
     return anchor_reg
 
+def find_int(splits):
+    for i in range(len(splits)):
+        split = splits[i]
+        try:
+            split = int(split)
+            return split
+        except:
+            pass
+
+def get_int(f):
+    splits = re.split('_|.png',f)
+    return find_int(splits)
+
 
 def controller_for_one_file(file_name):
     feature_map_shape = np.array((32, 32))
     images = []
+    depths  = []
     bbox_coordinates = []
-    image_names = glob.glob(file_name + '/*.png')
+    image_names = glob.glob(file_name + '/image_*.png')
+    image_names = sorted(image_names,key = get_int)
+    depth_names = glob.glob(file_name + '/depth_*.png')
+    depth_names = sorted(depth_names, key = get_int)
     voxel_full = read_bv(file_name + '/voxel_all.binvox').astype(np.int64)
     voxel_names = glob.glob(file_name + '/*.binvox')
     voxel_names.remove(file_name + '/voxel_all.binvox')
@@ -109,6 +128,11 @@ def controller_for_one_file(file_name):
     for j in range(len(image_names)):
         img = plt.imread(image_names[j])[:, :, :3]
         images.append(img.astype(np.int64))
+    images = np.stack(images)
+    for j in range(len(depth_names)):
+        depth = plt.imread(depth_names[j])[:,:,0]
+        depths.append(depth.astype(np.int64))
+    depths = np.stack(depths)
     data = np.load(file_name + '/bboordinates.npz')
     dims = data['dims']
     locs = data['locs']
@@ -119,16 +143,17 @@ def controller_for_one_file(file_name):
     bbox_coordinates = np.stack(bbox_coordinates)
     pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
     anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
-    return images, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_full, voxels_individual
+    return images, depths, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_full, voxels_individual
 
 
 def generate_tf_records(files, dump_dir):
     for i in range(len(files)):
-        images, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
+        images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
         num_obj = voxels_individual.shape[0]
         voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.int64), axis=0)
         example = tf.train.Example(features=tf.train.Features(feature={
             'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),
+            'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),
             'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),
             'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),
             'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),

@@ -5,7 +5,7 @@ import sys
 import os
 import pdb
 ###add path of constants.py here
-#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
+#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN_SEC/3DRPN/')
 import constants as const
 
 def check_intersect(obj1, obj2):
@@ -74,6 +74,14 @@ def parent_obj_to_camera(b_camera):
 	scn.objects.link(b_empty)
 	scn.objects.active = b_empty
 	return b_empty
+
+def render_depth(yes):
+	if yes:
+		tree.links.new(tree.nodes["Render Layers"].outputs["Depth"], tree.nodes["Map Range"].inputs["Value"])
+		tree.links.new(tree.nodes["Map Range"].outputs["Value"], tree.nodes["Composite"].inputs["Image"])
+	else:
+		tree.links.new(tree.nodes["Render Layers"].outputs["Image"], tree.nodes["Composite"].inputs["Image"])
+
 
 
 ##command line arguments
@@ -158,19 +166,25 @@ if num_lamps == 2:
 	lamp_object.select = True
 
 
+# Set up rendering of depth map.
+bpy.context.scene.use_nodes = True
+tree = bpy.context.scene.node_tree
+tree.nodes.new('CompositorNodeMapRange')
+# Range of depth (Hacky values set accordind to the location of the cameras for this project)
+tree.nodes["Map Range"].inputs["From Min"].default_value = 7
+tree.nodes["Map Range"].inputs["From Max"].default_value = 17
+
 
 import math
 from math import radians
-HV = 18
-VV = 3
-MINH = 0
-MAXH = 360 
-MINV = 1
-MAXV = 31 
-HDELTA = (MAXH-MINH) / HV #20
-VDELTA = (MAXV-MINV) / VV #10
 
 
+HV = const.HV
+VV = const.VV
+HDELTA = const.HDELTA
+VDELTA = const.VDELTA
+MINH = const.MINH
+MINV = const.MINV
 
 def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
 	phi = float(elevation_deg) / 180 * math.pi
@@ -186,6 +200,8 @@ rotation_mode = 'XY'
 
 radius = np.random.choice([8,9,10,11])
 camera_azimuth_angle = MINH
+index = 0 
+ffile = open('camera_positions.txt','w')
 for i in range(HV):
 	 
 	camera_elevation_angle = MINV
@@ -193,16 +209,35 @@ for i in range(HV):
 		
 		x,y,z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
 		print("Height angle {},Rotation angle{}".format(j*VDELTA,i*HDELTA))
+		render_depth(False)
 		cam.location = (x,y,z)
-		bpy.data.scenes['Scene'].render.filepath = image_dir + '/_rotation_{0:03f}_height_{1:01f}'.format(i*HDELTA,j*VDELTA)
-		
+		bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_%d'%(index)
 		bpy.ops.render.render(write_still=True)  # render still
+		
+		render_depth(True)
+		bpy.data.scenes['Scene'].render.filepath = image_dir + '/depth_%d'%(index)
+
+		bpy.ops.render.render(write_still=True)
+		
 		camera_elevation_angle += VDELTA
+		index += 1
 	camera_azimuth_angle += HDELTA
-	b_empty.rotation_euler[2] += radians(stepsize)
+	
 
 # generating voxel occupancy
-filepath = voxel_file_name + '.obj'
+i = 0
+bpy.data.objects['ground_plane'].select = True
+for k, v in bpy.data.objects.items():
+	if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
+		v.select = True
+		bpy.ops.export_scene.obj(filepath=voxel_file_name + str(i) + '.obj', use_selection=True)
+		command = '%sutil/./binvox -d 128 %s' % (const.cwd, voxel_file_name + str(i) + '.obj')
+		os.system(command)
+		v.select = False
+		i += 1
+
+
+filepath = voxel_file_name + '_all.obj'
 bpy.ops.export_scene.obj(filepath=filepath)
-command = '%sutil/./binvox -d 128 %s'%(const.cwd, filepath)
+command = '%sutil/./binvox -d 128 %s' % (const.cwd, filepath)
 os.system(command)

@@ -6,7 +6,7 @@ import sys
 import constants as const
 
 
-num_files = 7
+num_files = 5
 
 if os.path.isdir(const.DATA_DIR):
 	shutil.rmtree(const.DATA_DIR)
