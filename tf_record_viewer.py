@@ -3,7 +3,7 @@ import glob
 import constants as const
 import mayavi.mlab
 import numpy as np
-import pdb
+import cv2
 
 def make_data(fns):
     data = tf.data.TFRecordDataset(fns, compression_type='GZIP')
@@ -75,6 +75,15 @@ def anchors_viewer3D(pos_equal_one, anchor_reg, threshold=0.9, edgecolor=(0, 1, 
                          scale_factor=1)
 
 
+def image_viewer(images, depths):
+    for i in range(images.shape[0]):
+        cv2.imshow("image", images[i])
+        cv2.imshow("depth", depths[i])
+        cv2.waitKey(100)
+
+    cv2.destroyAllWindows()
+
+
 fns = sorted(glob.glob(const.TF_RECORD_DIR + '*.tfrecord'))
 iterator = make_data(fns)
 with tf.Session() as sess:
@@ -84,6 +93,7 @@ with tf.Session() as sess:
         
         print("File Name", f)
         images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj = sess.run(iterator.get_next())
+        image_viewer(images, depths)
         print("Number of objects", num_obj)
         anchors_viewer3D(pos_equal_one, anchor_reg, threshold=0.9, edgecolor=(0, 1, 0))
         mayavi.mlab.show()

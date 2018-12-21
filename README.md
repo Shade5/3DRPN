@@ -7,20 +7,20 @@ This repo also contains code to generate renders using ShapeNet data/objects. Th
 
 ## Data Generation
 * Set correct paths in constants.py
-* Set number of files in wrapper_3drpn.py
-* Run wrapper_3drpn.py to get data in DATA/
+* Set number of files in wrapper.py
+* Run wrapper.py to get data in DATA/
 * Run generating_tf_records.py to make tfrecords in data_tfrecords/
 * Run tf_record_viewer.py to view bbox in 3D for the saved tfrecords
 
 
 ## Bugs
 
-* Very long bbox appears randomly
+* Goes out of bounds sometimes
 
 ## ToDo:
 
-* Code to generate depth maps <br />
-* Code to generate voxel representation<br />
-* Add non-max suppression<br />
+* Test for bugs
+
+
 
 

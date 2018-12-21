@@ -8,21 +8,30 @@ mom = 0.9
 valp = 5
 
 #General Parameters
+# # 3D RPN
+# N = 2
+# HV = 2
+# VV = 1
+# MINH = -90
+# MINV = 0
+# HDELTA = 90
+# VDELTA = 0
+
+# 54 Views
+N = 54
 HV = 18
 VV = 3
 MINH = 0
 MAXH = 360
 MINV = 1
 MAXV = 31
-HDELTA = (MAXH-MINH) / HV #20
-VDELTA = (MAXV-MINV) / VV #10
-
-N = 2
+HDELTA = (MAXH-MINH) / HV
+VDELTA = (MAXV-MINV) / VV
 
 
 # Data Generation
-min_objects = 1
-max_objects = 3
+min_objects = 2
+max_objects = 4
 resolution = 128
 obj_path_path = '/home/a/workspace/katerina/3DRPN/mugs/paths.csv'
 mugs_path = '/home/a/workspace/katerina/3DRPN/mugs/'

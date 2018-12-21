@@ -3,10 +3,11 @@ import numpy as np
 import pandas as pd
 import sys
 import os
-import pdb
-###add path of constants.py here
-#sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN_SEC/3DRPN/')
+import math
+# add path of constants.py here
+# sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN_SEC/3DRPN/')
 import constants as const
+
 
 def check_intersect(obj1, obj2):
 	flag = True
@@ -50,7 +51,7 @@ def translate_obj(translate_scale, scale_scale):
 		if y_1 > 5.0 or y_2 < -5.0:
 			diff = (y_1 - 5.0) if y_1 > 5.0 else (y_2 - (-5))
 			x.location[1] = x.location[1] - diff
-		
+
 		for y in bpy.data.objects:
 			if y != x and y.name != 'ground_plane':
 				if check_intersect(x, y):
@@ -61,10 +62,8 @@ def translate_obj(translate_scale, scale_scale):
 			break
 
 
-
-
 def parent_obj_to_camera(b_camera):
-	#for rotation
+	# for rotation
 	origin = (0, 0, 0)
 	b_empty = bpy.data.objects.new("Empty", None)
 	b_empty.location = origin
@@ -75,6 +74,7 @@ def parent_obj_to_camera(b_camera):
 	scn.objects.active = b_empty
 	return b_empty
 
+
 def render_depth(yes):
 	if yes:
 		tree.links.new(tree.nodes["Render Layers"].outputs["Depth"], tree.nodes["Map Range"].inputs["Value"])
@@ -83,9 +83,16 @@ def render_depth(yes):
 		tree.links.new(tree.nodes["Render Layers"].outputs["Image"], tree.nodes["Composite"].inputs["Image"])
 
 
+def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
+	phi = float(elevation_deg) / 180 * math.pi
+	theta = float(azimuth_deg) / 180 * math.pi
+	x = (dist * math.cos(theta) * math.cos(phi))
+	y = (dist * math.sin(theta) * math.cos(phi))
+	z = (dist * math.sin(phi))
+	return x, y, z
 
-##command line arguments
 
+# command line arguments
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
 image_dir = sys.argv[-3]
@@ -95,6 +102,7 @@ voxel_file_name = sys.argv[-1]
 #paths
 obj_paths = pd.read_csv(const.obj_path_path)
 N = len(obj_paths['PATHS'])
+
 for i in range(num_mugs):
 	r = np.random.randint(N)
 	print("Adding:", obj_paths['PATHS'][r])
@@ -102,7 +110,7 @@ for i in range(num_mugs):
 	bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 	bpy.ops.object.join()
 	bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
-	translate_obj(9 , 0.1)
+	translate_obj(9, 0.1)
 
 # Adding ground plane
 bpy.ops.mesh.primitive_plane_add()
@@ -110,11 +118,11 @@ bpy.context.active_object.name = "ground_plane"
 bpy.data.objects['ground_plane'].location = [0, 0, 0]
 bpy.ops.transform.resize(value=(5, 5, 1))
 
-#Rendering
+# Rendering
 scene = bpy.context.scene
 render = scene.render
 res_x = render.resolution_x = const.resolution
-res_y  = render.resolution_y = const.resolution
+res_y = render.resolution_y = const.resolution
 scene.render.resolution_percentage = 100
 
 ground_x, ground_y, _ = bpy.data.objects['ground_plane'].dimensions
@@ -125,15 +133,14 @@ scale = res_x/ground_x
 locs = []
 dims = []
 for ref in bpy.data.objects:
-		if ref.name in ['Camera', 'Lamp', 'New Lamp', 'ground_plane']:
-				pass
-		else:
-				locs.append([(ref.location.x + add)*scale, (ref.location.y + add)*scale, (ref.location.z + add)*scale])
-				# Object is rotated along X axis by 90 by default, thus the dimensions along x and y are flipped
-				dims.append([ref.dimensions.x*scale, ref.dimensions.z*scale, ref.dimensions.y*scale])
+	if ref.name in ['Camera', 'Lamp', 'New Lamp', 'ground_plane']:
+		pass
+	else:
+		locs.append([(ref.location.x + add)*scale, (ref.location.y + add)*scale, (ref.location.z + add)*scale])
+		# Object is rotated along X axis by 90 by default, thus the dimensions along x and y are flipped
+		dims.append([ref.dimensions.x*scale, ref.dimensions.z*scale, ref.dimensions.y*scale])
 
 np.savez_compressed(save_file_name, locs=locs, dims=dims)
-
 
 cam = scene.objects['Camera']
 bpy.data.cameras['Camera'].lens = 22
@@ -157,6 +164,7 @@ if num_lamps == 2:
 	lamp_data.energy = 1.0
 	# Create new object with our lamp datablock
 	lamp_object = bpy.data.objects.new(name="New Lamp", object_data=lamp_data)
+	lamp_object.select = False
 	# Link lamp object to the scene so it'll appear in this scene
 	scene.objects.link(lamp_object)
 	# Place lamp to a specified location
@@ -164,7 +172,6 @@ if num_lamps == 2:
 	# Add one two more locations, the other edges of the square
 	# And finally select it make active
 	lamp_object.select = True
-
 
 # Set up rendering of depth map.
 bpy.context.scene.use_nodes = True
@@ -174,55 +181,6 @@ tree.nodes.new('CompositorNodeMapRange')
 tree.nodes["Map Range"].inputs["From Min"].default_value = 7
 tree.nodes["Map Range"].inputs["From Max"].default_value = 17
 
-
-import math
-from math import radians
-
-
-HV = const.HV
-VV = const.VV
-HDELTA = const.HDELTA
-VDELTA = const.VDELTA
-MINH = const.MINH
-MINV = const.MINV
-
-def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
-	phi = float(elevation_deg) / 180 * math.pi
-	theta = float(azimuth_deg) / 180 * math.pi
-	x = (dist * math.cos(theta) * math.cos(phi))
-	y = (dist * math.sin(theta) * math.cos(phi))
-	z = (dist * math.sin(phi))
-	return (x, y, z)
-
-stepsize = HDELTA
-rotation_mode = 'XY'
-
-
-radius = np.random.choice([8,9,10,11])
-camera_azimuth_angle = MINH
-index = 0 
-ffile = open('camera_positions.txt','w')
-for i in range(HV):
-	 
-	camera_elevation_angle = MINV
-	for j in range(VV):
-		
-		x,y,z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
-		print("Height angle {},Rotation angle{}".format(j*VDELTA,i*HDELTA))
-		render_depth(False)
-		cam.location = (x,y,z)
-		bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_%d'%(index)
-		bpy.ops.render.render(write_still=True)  # render still
-		
-		render_depth(True)
-		bpy.data.scenes['Scene'].render.filepath = image_dir + '/depth_%d'%(index)
-
-		bpy.ops.render.render(write_still=True)
-		
-		camera_elevation_angle += VDELTA
-		index += 1
-	camera_azimuth_angle += HDELTA
-	
 
 # generating voxel occupancy
 i = 0
@@ -236,8 +194,33 @@ for k, v in bpy.data.objects.items():
 		v.select = False
 		i += 1
 
-
 filepath = voxel_file_name + '_all.obj'
 bpy.ops.export_scene.obj(filepath=filepath)
 command = '%sutil/./binvox -d 128 %s' % (const.cwd, filepath)
 os.system(command)
+
+# Rendering Images
+stepsize = const.HDELTA
+rotation_mode = 'XY'
+
+radius = np.random.choice([8, 9, 10, 11])
+camera_azimuth_angle = const.MINH
+index = 0
+for i in range(const.HV):
+	camera_elevation_angle = const.MINV
+	for j in range(const.VV):
+		x, y, z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
+		print("Height angle {},Rotation angle{}".format(j * const.VDELTA, i * const.HDELTA))
+		render_depth(False)
+		cam.location = (x, y, z)
+		bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_%d' % (index)
+		bpy.ops.render.render(write_still=True)  # render still
+
+		render_depth(True)
+		bpy.data.scenes['Scene'].render.filepath = image_dir + '/depth_%d' % (index)
+
+		bpy.ops.render.render(write_still=True)
+
+		camera_elevation_angle += const.VDELTA
+		index += 1
+	camera_azimuth_angle += const.HDELTA

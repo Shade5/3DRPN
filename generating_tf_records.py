@@ -12,6 +12,7 @@ import sys
 sys.path.append('util/')
 from bv import read_bv
 
+
 def generating_probs_maps(anchor_size, boxes, feature_map_shape, scale_factor):
     anchor_size_pad = int(anchor_size / 2)
     objboxes = corner_to_standup_box2d(boxes, scale_factor)
@@ -94,6 +95,7 @@ def get_regression_deltas(pos_equal_one, bboxes, anchor_size, scale):
     
     return anchor_reg
 
+
 def find_int(splits):
     for i in range(len(splits)):
         split = splits[i]
@@ -103,6 +105,7 @@ def find_int(splits):
         except:
             pass
 
+
 def get_int(f):
     splits = re.split('_|.png',f)
     return find_int(splits)
@@ -111,7 +114,7 @@ def get_int(f):
 def controller_for_one_file(file_name):
     feature_map_shape = np.array((32, 32))
     images = []
-    depths  = []
+    depths = []
     bbox_coordinates = []
     image_names = glob.glob(file_name + '/image_*.png')
     image_names = sorted(image_names,key = get_int)
@@ -127,11 +130,11 @@ def controller_for_one_file(file_name):
     voxels_individual = np.stack(voxels_individual)
     for j in range(len(image_names)):
         img = plt.imread(image_names[j])[:, :, :3]
-        images.append(img.astype(np.int64))
+        images.append(img.astype(np.float64))
     images = np.stack(images)
     for j in range(len(depth_names)):
         depth = plt.imread(depth_names[j])[:,:,0]
-        depths.append(depth.astype(np.int64))
+        depths.append(depth.astype(np.float64))
     depths = np.stack(depths)
     data = np.load(file_name + '/bboordinates.npz')
     dims = data['dims']
@@ -152,15 +155,15 @@ def generate_tf_records(files, dump_dir):
         num_obj = voxels_individual.shape[0]
         voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.int64), axis=0)
         example = tf.train.Example(features=tf.train.Features(feature={
-            'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),
-            'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),
-            'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),
-            'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),
-            'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),
-            'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),
-            'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),
-            'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),
-            'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),
+            'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float64
+            'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float64
+            'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
+            'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
+            'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
+            'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
+            'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
+            'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# int64
+            'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# int64
         }))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         with tf.python_io.TFRecordWriter(dump_dir+str(i)+'.tfrecord', options=options) as writer:
