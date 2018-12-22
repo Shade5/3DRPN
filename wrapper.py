@@ -2,6 +2,8 @@ import os
 import shutil
 import numpy as np
 import sys
+import multiprocessing
+from joblib import Parallel, delayed
 #sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
@@ -10,7 +12,7 @@ num_files = 4
 if os.path.isdir(const.DATA_DIR):
 	shutil.rmtree(const.DATA_DIR)
 os.mkdir(const.DATA_DIR)
-for i in range(num_files):
+def world_gen(i):
 	num_lamps = np.random.choice([1, 2], p=[0.4, 0.6])
 	num_mugs = np.random.randint(const.min_objects, const.max_objects + 1)
 	
@@ -24,4 +26,5 @@ for i in range(num_files):
 	os.system(command)
 
 
-
+num_cores=multiprocessing.cpu_count()
+Parallel(n_jobs=int(num_cores/2))(delayed(world_gen)(i) for i in range(num_files))
