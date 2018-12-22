@@ -18,38 +18,32 @@ class FltRPN:
     def decode(self, example):
         stuff = tf.parse_single_example(example, features={
             'images': tf.FixedLenFeature([], tf.string),
+            'depths': tf.FixedLenFeature([], tf.string),
             'bboxes': tf.FixedLenFeature([], tf.string),
             'pos_equal_one': tf.FixedLenFeature([], tf.string),
             'neg_equal_one': tf.FixedLenFeature([], tf.string),
             'anchor_reg': tf.FixedLenFeature([], tf.string),
+            'num_obj': tf.FixedLenFeature([], tf.string),
             'voxel': tf.FixedLenFeature([], tf.string),
             'voxel_obj': tf.FixedLenFeature([], tf.string)
         })
 
-        images = tf.decode_raw(stuff['images'], tf.float32)
-        images = tf.reshape(images, (2, const.resolution, const.resolution, 3))
-        bboxes = tf.decode_raw(stuff['bboxes'], tf.float64)
-        bboxes = tf.reshape(bboxes, (-1, 6))
-        pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
-        pos_equal_one = tf.cast(tf.reshape(pos_equal_one, (32, 32)), tf.float32)
-        neg_equal_one = tf.decode_raw(stuff['neg_equal_one'], tf.int64)
-        neg_equal_one = tf.cast(tf.reshape(neg_equal_one, (32, 32)), tf.float32)
+        images = tf.decode_raw(stuff['images'], tf.float64)
+        images = tf.reshape(images, (const.N, const.resolution, const.resolution, 3))
+        pos_equal_one = tf.cast(tf.decode_raw(stuff['pos_equal_one'], tf.int64), tf.float64)
+        pos_equal_one = tf.reshape(pos_equal_one, (32, 32))
         anchor_reg = tf.decode_raw(stuff['anchor_reg'], tf.float64)
-        anchor_reg = tf.cast(tf.reshape(anchor_reg, (32, 32, 6)), tf.float32)
-        voxel = tf.decode_raw(stuff['voxel'], tf.float32)
-        voxel = tf.reshape(voxel, (128, 128, 128))
-        voxel_obj = tf.decode_raw(stuff['voxel_obj'], tf.float32)
-        voxel_obj = tf.reshape(voxel_obj, (-1, 128, 128, 128))
-        return images, pos_equal_one, neg_equal_one, anchor_reg
+        anchor_reg = tf.reshape(anchor_reg, (32, 32, 6))
+        return images, pos_equal_one, anchor_reg
 
     def first_layers(self, data_0, data_90):
-        # Image from 0 degree
+        # Image from -90 degree
         with tf.name_scope('projection_0'):
             x_0 = tf.layers.conv2d(data_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
             x_0 = tf.layers.conv2d(x_0, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
             x_0 = tf.layers.max_pooling2d(x_0, pool_size=(2, 2), strides=(2, 2), padding='same')
 
-            # Image from 90 degree
+            # Image from 0 degree
         with tf.name_scope('projection_90'):
             x_90 = tf.layers.conv2d(data_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
             x_90 = tf.layers.conv2d(x_90, filters=32, kernel_size=(3, 3), padding='same', activation=tf.nn.relu)
@@ -61,8 +55,8 @@ class FltRPN:
             FT = tf.tile(x_0[:, :, :, None, :], [1, 1, 1, 64, 1])
             FT = FT + tf.tile(x_90[:, :, None, :, :], [1, 1, 64, 1, 1])
 
-        # tf.summary.image('data_0', data_0)
-        # tf.summary.image('data_90', data_90)
+        tf.summary.image('data_0', data_0)
+        tf.summary.image('data_90', data_90)
 
         return FT
 
@@ -133,22 +127,23 @@ class FltRPN:
         loss_prob = tf.reduce_sum(cls_pos_loss + cls_neg_loss) / const.BS
 
         pos_equal_one_expanded = tf.expand_dims(pos_equal_one, 3)
-        r_map_mask = tf.tile(pos_equal_one_expanded, [1, 1, 1, 6])
-        loss_reg = tf.reduce_sum(self.smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
-
-        loss = loss_prob + loss_reg
+        # r_map_mask = tf.tile(pos_equal_one_expanded, [1, 1, 1, 6])
+        # loss_reg = tf.reduce_sum(self.smooth_l1(r_map * r_map_mask, anchors_reg * r_map_mask) / tf.reshape(pos_equal_one_sum, [-1, 1, 1, 1])) / const.BS
+        #
+        # loss = loss_prob + loss_reg
         self.summary_pos_equal_one = tf.summary.image('real_pos', tf.expand_dims(tf.expand_dims(pos_equal_one[0], 2), 0))
-        self.summary_loss = tf.summary.scalar('loss', loss)
+        # self.summary_loss = tf.summary.scalar('loss', loss)
         self.summary_loss_prob = tf.summary.scalar('loss_prob', loss_prob)
-        self.summary_loss_reg = tf.summary.scalar('loss_reg', loss_reg)
+        # self.summary_loss_reg = tf.summary.scalar('loss_reg', loss_reg)
 
-        return loss
+        return loss_prob
 
     def train_step(self, data):
+        images, pos_equal_one, anchor_reg = data
         with tf.name_scope('train'):
-            FT = self.first_layers(data[0][:, 0], data[0][:, 1])
+            FT = self.first_layers(images[:, 0], images[:, 1])
             p_pos, r_map = self.rpn(FT)
-            loss = self.calc_loss(p_pos, r_map, data[1], data[3])
+            loss = self.calc_loss(p_pos, r_map, pos_equal_one, anchor_reg)
         with tf.name_scope('optimize'):
             opt = tf.train.AdamOptimizer(const.lr, const.mom).minimize(loss)
 
@@ -177,7 +172,7 @@ class FltRPN:
             sess.run(tf.global_variables_initializer())
             training_handle = sess.run(training_iterator.string_handle())
             validation_handle = sess.run(validation_iterator.string_handle())
-            for i in range(20):
+            for i in range(2000):
                 s, _ = sess.run([merged_summary, opt], feed_dict={handle: training_handle})
                 self.train_writer.add_summary(s, i)
                 print(i)
