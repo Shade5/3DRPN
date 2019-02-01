@@ -7,8 +7,6 @@ from joblib import Parallel, delayed
 #sys.path.append('/home/neeraj/Documents/3D_PROJECT/3DRPN/')
 import constants as const
 
-num_files = 4
-
 if os.path.isdir(const.DATA_DIR):
 	shutil.rmtree(const.DATA_DIR)
 os.mkdir(const.DATA_DIR)
@@ -27,4 +25,4 @@ def world_gen(i):
 
 
 num_cores=multiprocessing.cpu_count()
-Parallel(n_jobs=int(num_cores/2))(delayed(world_gen)(i) for i in range(num_files))
+Parallel(n_jobs=int(num_cores/2))(delayed(world_gen)(i) for i in range(const.num_files))

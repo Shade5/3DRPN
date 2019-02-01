@@ -1,0 +1,31 @@
+In this branch, the following are modified:
+
+
+
+
+TODO:
+- [x] elevation angle: 20, 40, 60
+- [x] camera moving order: horizontal (top down ccw) first, vertical (up) second
+- [x] remove bbox data generation
+- [x] camera fov
+- [ ] scene size, obj size, voxel generation
+        now use scene size 2, binvox -1 to 1, not really sure
+- [x] camera sphere radius: radius is 4
+- [x] obj export coordinate axis order
+- [ ] check depth map
+- [ ] make lighting more complex
+
+
+=========== notes ===========
+1. camera
+    focal length, fov are related by sensor size
+2. objects are placed on a plane with z = 0 (ricson's data not like this, so compatibility with elevation/azimuth definition needs further checking)
+2. depth interpretation:
+    7 - 17
+    7: 0
+    7.1: 25
+    7.2: 39
+    7.3: 48
+    8: 89
+    16: 243
+    17: 255

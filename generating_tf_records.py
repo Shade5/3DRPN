@@ -1,4 +1,5 @@
 import numpy as np
+import imageio
 import tensorflow as tf
 import os
 import re
@@ -106,8 +107,12 @@ def find_int(splits):
             pass
 
 
-def get_int(f):
+def get_int_png(f):
     splits = re.split('_|.png',f)
+    return find_int(splits)
+
+def get_int_exr(f):
+    splits = re.split('_|.exr',f)
     return find_int(splits)
 
 
@@ -117,9 +122,9 @@ def controller_for_one_file(file_name):
     depths = []
     bbox_coordinates = []
     image_names = glob.glob(file_name + '/image_*.png')
-    image_names = sorted(image_names,key = get_int)
-    depth_names = glob.glob(file_name + '/depth_*.png')
-    depth_names = sorted(depth_names, key = get_int)
+    image_names = sorted(image_names,key = get_int_png)
+    depth_names = glob.glob(file_name + '/depth_*.exr')
+    depth_names = sorted(depth_names, key = get_int_exr)
     voxel_full = read_bv(file_name + '/voxel_all.binvox').astype(np.int64)
     voxel_names = glob.glob(file_name + '/*.binvox')
     voxel_names.remove(file_name + '/voxel_all.binvox')
@@ -133,40 +138,44 @@ def controller_for_one_file(file_name):
         images.append(img.astype(np.float64))
     images = np.stack(images)
     for j in range(len(depth_names)):
-        depth = plt.imread(depth_names[j])[:,:,0]
+        depth = np.array(imageio.imread(depth_names[j], format='EXR-FI'))[:,:,0]
+        depth = depth * (const.depth_render_max - const.depth_render_min) + const.depth_render_min # now we have real depth
+        depth = depth / 2.0 # compensate for the mysterious *2 operation in 3dmapping training pipline
         depths.append(depth.astype(np.float64))
     depths = np.stack(depths)
-    data = np.load(file_name + '/bboordinates.npz')
-    dims = data['dims']
-    locs = data['locs']
-    for j in range(dims.shape[0]):
-        x, y, z = locs[j]
-        l, w, h = dims[j]
-        bbox_coordinates.append([x, y, z, l, w, h])
-    bbox_coordinates = np.stack(bbox_coordinates)
-    pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
-    anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
-    return images, depths, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_full, voxels_individual
+    # data = np.load(file_name + '/bboordinates.npz')
+    # dims = data['dims']
+    # locs = data['locs']
+    # for j in range(dims.shape[0]):
+    #     x, y, z = locs[j]
+    #     l, w, h = dims[j]
+    #     bbox_coordinates.append([x, y, z, l, w, h])
+    # bbox_coordinates = np.stack(bbox_coordinates)
+    # pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
+    # anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
+    # return images, depths, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_full, voxels_individual
+    return images, depths, voxel_full, voxels_individual
 
 
 def generate_tf_records(files, dump_dir):
     for i in range(len(files)):
-        images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
+        # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
+        images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
         num_obj = voxels_individual.shape[0]
         voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.int64), axis=0)
         example = tf.train.Example(features=tf.train.Features(feature={
             'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float64
             'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float64
-            'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
-            'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
-            'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
-            'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
-            'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
+            # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
+            # 'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
+            # 'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
+            # 'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
+            # 'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
             'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# int64
             'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# int64
         }))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
-        with tf.python_io.TFRecordWriter(dump_dir+str(i)+'.tfrecord', options=options) as writer:
+        with tf.python_io.TFRecordWriter(dump_dir+str(i), options=options) as writer:
             writer.write(example.SerializeToString())
 
 
