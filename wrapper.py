@@ -25,4 +25,4 @@ def world_gen(i):
 
 
 num_cores=multiprocessing.cpu_count()
-Parallel(n_jobs=int(num_cores/2))(delayed(world_gen)(i) for i in range(const.num_files))
+Parallel(n_jobs=int(num_cores))(delayed(world_gen)(i) for i in range(const.num_files))

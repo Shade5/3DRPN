@@ -125,23 +125,23 @@ def controller_for_one_file(file_name):
     image_names = sorted(image_names,key = get_int_png)
     depth_names = glob.glob(file_name + '/depth_*.exr')
     depth_names = sorted(depth_names, key = get_int_exr)
-    voxel_full = read_bv(file_name + '/voxel_all.binvox').astype(np.int64)
+    voxel_full = read_bv(file_name + '/voxel_all.binvox').astype(np.float32)
     voxel_names = glob.glob(file_name + '/*.binvox')
     voxel_names.remove(file_name + '/voxel_all.binvox')
     voxels_individual = []
     for i in range(len(voxel_names)):
-        vox = read_bv(voxel_names[i]).astype(np.int64)
+        vox = read_bv(voxel_names[i]).astype(np.float32)
         voxels_individual.append(vox)
     voxels_individual = np.stack(voxels_individual)
     for j in range(len(image_names)):
         img = plt.imread(image_names[j])[:, :, :3]
-        images.append(img.astype(np.float64))
+        images.append(img.astype(np.float32))
     images = np.stack(images)
     for j in range(len(depth_names)):
         depth = np.array(imageio.imread(depth_names[j], format='EXR-FI'))[:,:,0]
         depth = depth * (const.depth_render_max - const.depth_render_min) + const.depth_render_min # now we have real depth
         depth = depth / 2.0 # compensate for the mysterious *2 operation in 3dmapping training pipline
-        depths.append(depth.astype(np.float64))
+        depths.append(depth.astype(np.float32))
     depths = np.stack(depths)
     # data = np.load(file_name + '/bboordinates.npz')
     # dims = data['dims']
@@ -162,7 +162,8 @@ def generate_tf_records(files, dump_dir):
         # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
         images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
         num_obj = voxels_individual.shape[0]
-        voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.int64), axis=0)
+        voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
+
         example = tf.train.Example(features=tf.train.Features(feature={
             'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float64
             'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float64

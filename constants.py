@@ -49,7 +49,7 @@ anchor_size = 6
 scale_factor = 4
 default_z = 16
 
-num_files = 300
+num_files = 700
 
 generate_voxel = True
 
