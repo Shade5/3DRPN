@@ -181,11 +181,11 @@ def generate_tf_records(files, dump_dir):
 
 
 if __name__ == "__main__":
-    dump_dir = 'data_tfrecords/'
+    dump_dir = const.tf_record_dir
     if os.path.isdir(dump_dir):
         shutil.rmtree(dump_dir)
     os.mkdir(dump_dir)
-    files = glob.glob('DATA/*')
+    files = glob.glob(os.path.join(const.data_dir, '*'))
     generate_tf_records(files, dump_dir)
 
 

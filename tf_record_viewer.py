@@ -87,7 +87,7 @@ def image_viewer(images, depths):
     cv2.destroyAllWindows()
 
 
-fns = sorted(glob.glob(const.TF_RECORD_DIR + '*'))
+fns = sorted(glob.glob(const.tf_record_dir + '*'))
 iterator = make_data(fns)
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
