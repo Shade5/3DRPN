@@ -110,11 +110,12 @@ for i in range(num_mugs):
 	bpy.context.scene.objects.active.name = obj_paths['PATHS'][r]
 	translate_obj(const.scene_size, const.obj_rescale, const.scene_size/2.0)
 
-# Adding ground plane
-bpy.ops.mesh.primitive_plane_add()
-bpy.context.active_object.name = "ground_plane"
-bpy.data.objects['ground_plane'].location = [0, 0, 0]
-bpy.ops.transform.resize(value=(const.scene_size/2, const.scene_size/2, 1)) # original size is 2x2
+if const.ground_plane:
+    # Adding ground plane
+    bpy.ops.mesh.primitive_plane_add()
+    bpy.context.active_object.name = "ground_plane"
+    bpy.data.objects['ground_plane'].location = [0, 0, 0]
+    bpy.ops.transform.resize(value=(const.scene_size/2, const.scene_size/2, 1)) # original size is 2x2
 
 # Rendering
 scene = bpy.context.scene
@@ -168,7 +169,8 @@ tree.nodes["Map Range"].inputs["From Max"].default_value = const.depth_render_ma
 
 # generating voxel occupancy
 i = 0
-bpy.data.objects['ground_plane'].select = False # individual voxel file does not contain ground plane
+if const.ground_plane:
+    bpy.data.objects['ground_plane'].select = False # individual voxel file does not contain ground plane
 for k, v in bpy.data.objects.items():
 	if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
 		v.select = True
