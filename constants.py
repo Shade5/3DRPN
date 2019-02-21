@@ -40,10 +40,11 @@ min_objects = 2
 max_objects = 2
 img_resolution = 128 # square image
 vox_resolution = 128
-ground_plane = False
-dataset_name = 'blender' if ground_plane else 'blender_noplane'
-obj_path_path = os.path.join(repo_path, 'mugs/paths.csv')
-mugs_path = os.path.join(repo_path, 'mugs/')
+ground_plane = 'rand' # [True, False, 'rand']
+height_rand = True
+dataset_name = 'blender_rand'
+num_files = 1200
+obj_folder_path = os.path.join(repo_path, 'objs/')
 data_dir = os.path.join(repo_path, 'data/', dataset_name, 'data_raw/')
 video_path = os.path.join(repo_path, 'data/', dataset_name, 'blender_data.avi')
 tf_record_dir = os.path.join(repo_path, 'data/', dataset_name, 'data_tfrecords/')
@@ -52,7 +53,6 @@ anchor_size = 6
 scale_factor = 4
 default_z = 16
 
-num_files = 10
 
 generate_voxel = True
 
