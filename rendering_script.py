@@ -99,7 +99,7 @@ save_file_name = sys.argv[-2]
 voxel_file_name = sys.argv[-1]
 
 #paths
-obj_paths = glob.glob(os.path.join(const.obj_folder_path, '*/*/models/model_normalized.obj'))
+obj_paths = glob.glob(os.path.join(const.obj_folder_path, const.obj_cat, '*/models/model_normalized.obj'))
 
 # whether to add ground plane
 assert const.ground_plane in [True, False, 'rand']

@@ -159,6 +159,7 @@ def controller_for_one_file(file_name):
 
 def generate_tf_records(files, dump_dir):
     for i in range(len(files)):
+        print(i)
         # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
         images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
         num_obj = voxels_individual.shape[0]

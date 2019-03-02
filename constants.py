@@ -40,11 +40,14 @@ min_objects = 2
 max_objects = 2
 img_resolution = 128 # square image
 vox_resolution = 128
-ground_plane = 'rand' # [True, False, 'rand']
-height_rand = True
-dataset_name = 'blender_rand'
-num_files = 1200
+
+ground_plane = True # [True, False, 'rand']
+height_rand = False
+dataset_name = 'blender_var'
+num_files = 48
+
 obj_folder_path = os.path.join(repo_path, 'objs/')
+obj_cat = '03797390' # regex expression for object catogory
 data_dir = os.path.join(repo_path, 'data/', dataset_name, 'data_raw/')
 video_path = os.path.join(repo_path, 'data/', dataset_name, 'blender_data.avi')
 tf_record_dir = os.path.join(repo_path, 'data/', dataset_name, 'data_tfrecords/')
@@ -53,11 +56,10 @@ anchor_size = 6
 scale_factor = 4
 default_z = 16
 
-
 generate_voxel = True
 
-cam_dist = 4 # radius of the sphere camera moves on
-cam_FOV = 30 # horizontal FOV in deg
+cam_dist = 2 # radius of the sphere camera moves on
+cam_FOV = 80 # horizontal FOV in deg
 depth_render_min = 0 # 0.0 is distance 0
 depth_render_max = 100 # 1.0 is distance 100
 scene_size = 2
