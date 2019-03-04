@@ -100,6 +100,7 @@ with tf.Session() as sess:
         import IPython;IPython.embed()
 
         plt.imshow(images[0]); plt.show()
+        plt.imshow(depths[0].squeeze()); plt.show()
         xx,yy,zz = np.where(voxel == 1)
         zzz, yyy, xxx = np.where(np.transpose(voxel, [2, 1, 0]) == 1)
         mayavi.mlab.points3d(xx, yy, zz,

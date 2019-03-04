@@ -43,7 +43,7 @@ vox_resolution = 128
 
 ground_plane = True # [True, False, 'rand']
 height_rand = False
-dataset_name = 'blender_var'
+dataset_name = 'real'
 num_files = 48
 
 obj_folder_path = os.path.join(repo_path, 'objs/')
