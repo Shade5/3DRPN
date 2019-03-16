@@ -92,6 +92,7 @@ def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
 
 
 # command line arguments
+split = sys.argv[-6]
 num_lamps = int(sys.argv[-5])
 num_mugs = int(sys.argv[-4])
 image_dir = sys.argv[-3]
@@ -99,7 +100,8 @@ save_file_name = sys.argv[-2]
 voxel_file_name = sys.argv[-1]
 
 #paths
-obj_paths = glob.glob(os.path.join(const.obj_folder_path, const.obj_cat, '*/models/model_normalized.obj'))
+obj_paths = glob.glob(os.path.join(const.obj_folder_path, const.obj_cat, split, '*/models/model_normalized.obj'))
+import IPython;IPython.embed()
 
 # whether to add ground plane
 assert const.ground_plane in [True, False, 'rand']

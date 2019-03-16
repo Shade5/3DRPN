@@ -10,19 +10,20 @@ import constants as const
 if os.path.isdir(const.data_dir):
 	shutil.rmtree(const.data_dir)
 os.makedirs(const.data_dir)
-def world_gen(i):
+def world_gen(i, split):
 	num_lamps = np.random.choice([1, 2], p=[0.4, 0.6])
 	num_mugs = np.random.randint(const.min_objects, const.max_objects + 1)
 	
-	image_dir = os.path.join(const.data_dir, '%d' % i)
+	image_dir = os.path.join(const.data_dir, '%s_%d' % (split, i))
 	if os.path.isdir(image_dir):
 		shutil.rmtree(image_dir)
 	os.mkdir(image_dir)
 	voxel_file_name = image_dir + '/voxel'
 	save_file_name = image_dir+'/bboordinates.npz'
-	command = '%sblender create_data.blend --background  --python rendering_script.py %d %d %s %s %s'%(const.BLENDER_DIR, num_lamps, num_mugs, image_dir, save_file_name, voxel_file_name)
+	command = '%sblender create_data.blend --background  --python rendering_script.py %s %d %d %s %s %s'%(const.BLENDER_DIR, split, num_lamps, num_mugs, image_dir, save_file_name, voxel_file_name)
 	os.system(command)
 
 
 num_cores=multiprocessing.cpu_count()
-Parallel(n_jobs=int(num_cores))(delayed(world_gen)(i) for i in range(const.num_files))
+Parallel(n_jobs=int(num_cores))(delayed(world_gen)(i, 'train') for i in range(const.train_num_files))
+Parallel(n_jobs=int(num_cores))(delayed(world_gen)(i, 'test') for i in range(const.test_num_files))

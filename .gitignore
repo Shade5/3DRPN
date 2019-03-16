@@ -3,5 +3,7 @@ __pycache__
 log
 data/
 objs/
+raw_objs/
+other_objs/
 backup/
 *.pyc
