@@ -143,6 +143,7 @@ def controller_for_one_file(file_name):
         depth = depth / 2.0 # compensate for the mysterious *2 operation in 3dmapping training pipline
         depths.append(depth.astype(np.float32))
     depths = np.stack(depths)
+
     # data = np.load(file_name + '/bboordinates.npz')
     # dims = data['dims']
     # locs = data['locs']
@@ -154,30 +155,54 @@ def controller_for_one_file(file_name):
     # pos_equal_one, neg_equal_one = generating_probs_maps(const.anchor_size, bbox_coordinates, feature_map_shape, const.scale_factor)
     # anchors_reg = get_regression_deltas(pos_equal_one, bbox_coordinates, const.anchor_size, const.scale_factor)
     # return images, depths, bbox_coordinates, pos_equal_one, neg_equal_one, anchors_reg, voxel_full, voxels_individual
-    return images, depths, voxel_full, voxels_individual
+    if const.store_matrices:
+        Ks = np.load(os.path.join(file_name, 'intrinsics.npy'))
+        T_cams = np.load(os.path.join(file_name, 'extrinsics.npy'))
+        return images, depths, voxel_full, voxels_individual, Ks, T_cams
+    else:
+        return images, depths, voxel_full, voxels_individual
 
 
 def generate_tf_records(files, dump_dir):
     for i in range(len(files)):
         print(i)
         # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
-        images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
-        num_obj = voxels_individual.shape[0]
-        voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
+        if const.store_matrices:
+            images, depths, voxel_full, voxels_individual, Ks, T_cams = controller_for_one_file(files[i])
+            num_obj = voxels_individual.shape[0]
+            voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
 
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float64
-            'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float64
-            # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
-            # 'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
-            # 'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
-            # 'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
-            # 'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
-            'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# int64
-            'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# int64
-        }))
+            example = tf.train.Example(features=tf.train.Features(feature={
+                'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float32
+                'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float32
+                'intrinsics': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(Ks).tostring()])),# float64
+                'extrinsics': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(T_cams).tostring()])),# float64
+                # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
+                # 'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
+                # 'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
+                # 'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
+                # 'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
+                'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# float32
+                'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# float32
+            }))
+        else:
+            images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
+            num_obj = voxels_individual.shape[0]
+            voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
+
+            example = tf.train.Example(features=tf.train.Features(feature={
+                'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float32
+                'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float32
+                # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
+                # 'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
+                # 'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
+                # 'anchor_reg': tf.train.Feature(bytes_list=tf.train.BytesList(value=[anchor_reg.tostring()])),# float64
+                # 'num_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array([num_obj], dtype=np.int64).tostring()])),# int64
+                'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# float32
+                'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# float32
+            }))
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
-        with tf.python_io.TFRecordWriter(dump_dir+str(i), options=options) as writer:
+        with tf.python_io.TFRecordWriter(os.path.join(dump_dir, os.path.basename(files[i])), options=options) as writer:
             writer.write(example.SerializeToString())
 
 

@@ -8,6 +8,7 @@ import glob
 # add path of constants.py here
 sys.path.append('/home/zhouxian/git/3DRPN/')
 import constants as const
+import pyquaternion
 
 
 def check_intersect(obj1, obj2):
@@ -90,6 +91,48 @@ def obj_centered_camera_pos(dist, azimuth_deg, elevation_deg):
     z = (dist * math.sin(phi))
     return x, y, z
 
+def normalize_vec(vec):
+    vec = np.array(vec)
+    return vec/np.linalg.norm(vec)
+
+def compute_camera_axes(cam_location, camera_azimuth_angle):
+    ''' return camera axes follow opencv convention
+    '''
+
+    cam_z_axis = np.array([0, 0, 0]) - cam_location
+    cam_x_axis = np.array([1.0*np.cos((180.0+camera_azimuth_angle)/180.0*np.pi),
+                           1.0*np.sin((180.0+camera_azimuth_angle)/180.0*np.pi),
+                           0])
+    cam_y_axis = np.cross(cam_z_axis, cam_x_axis)
+    cam_z_axis = normalize_vec(cam_z_axis)
+    cam_x_axis = normalize_vec(cam_x_axis)
+    cam_y_axis = normalize_vec(cam_y_axis)
+
+    return cam_x_axis, cam_y_axis, cam_z_axis
+
+def compute_extrinsic(x, y, z, R_cam):
+    T_cam_to_blender_world = np.zeros((4, 4))
+    T_cam_to_blender_world[:3, :3] = R_cam
+    T_cam_to_blender_world[:, 3] = [x, y, z, 1.0]
+
+    # now we get T w.r.t blender world frame, then we convert to the exported obj frame
+    T_blender_to_export = np.array([
+        [1.0, 0, 0, 0],
+        [0, 0, 1.0, 0],
+        [0, -1.0, 0, 0],
+        [0, 0, 0, 1.0]])
+
+    T_cam_to_world = T_blender_to_export.dot(T_cam_to_blender_world)
+
+    return T_cam_to_world
+
+def compute_intrinsic(img_size, fov_deg):
+    f = img_size/2.0/np.tan(fov_deg/180.0/2.0*np.pi)
+    K = np.array(
+        [[f, 0, img_size/2.0],
+        [0, f, img_size/2.0],
+        [0, 0, 1]])
+    return K
 
 # command line arguments
 split = sys.argv[-6]
@@ -101,7 +144,6 @@ voxel_file_name = sys.argv[-1]
 
 #paths
 obj_paths = glob.glob(os.path.join(const.obj_folder_path, const.obj_cat, split, '*/models/model_normalized.obj'))
-import IPython;IPython.embed()
 
 # whether to add ground plane
 assert const.ground_plane in [True, False, 'rand']
@@ -145,13 +187,14 @@ scene.render.resolution_percentage = 100
 # set up camera
 cam = scene.objects['Camera']
 bpy.data.cameras['Camera'].lens_unit = 'FOV'
-bpy.data.cameras['Camera'].angle = const.cam_FOV/180*np.pi
+bpy.data.cameras['Camera'].angle = const.cam_FOV/180.0*np.pi
 cam.location = (4, -4, 0)
-cam_constraint = cam.constraints.new(type='TRACK_TO')
-cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
-cam_constraint.up_axis = 'UP_Y'
-b_empty = parent_obj_to_camera(cam)
-cam_constraint.target = b_empty
+
+# cam_constraint = cam.constraints.new(type='TRACK_TO')
+# cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
+# cam_constraint.up_axis = 'UP_Y'
+# b_empty = parent_obj_to_camera(cam)
+# cam_constraint.target = b_empty
 
 
 lamp = bpy.data.lamps['Lamp']
@@ -209,19 +252,34 @@ if const.generate_voxel:
 
 # Rendering Images
 stepsize = const.HDELTA
-rotation_mode = 'XY'
+cam.rotation_mode = 'QUATERNION'
 
 radius = const.cam_dist
 camera_elevation_angle = const.MINV
 index = 0
+T_cams = []
+Ks = []
 for i in range(const.VV):
     camera_azimuth_angle = const.MINH
     for j in range(const.HV):
         x, y, z = obj_centered_camera_pos(radius, camera_azimuth_angle, camera_elevation_angle)
+
+        cam.location = (x, y, z)
+        cam_x_axis, cam_y_axis, cam_z_axis = compute_camera_axes([x, y, z], camera_azimuth_angle)
+        R_cam = np.vstack([cam_x_axis, cam_y_axis, cam_z_axis]).T
+        # blender uses different camera frame convention
+        R_cam_blender = np.vstack([cam_x_axis, -cam_y_axis, -cam_z_axis]).T
+        cam_quat_blender = pyquaternion.Quaternion(matrix=R_cam_blender)
+        cam.rotation_quaternion = [cam_quat_blender.w, cam_quat_blender.x, cam_quat_blender.y, cam_quat_blender.z]
+
+        # extrinsics and intrinsics
+        T_cams.append(compute_extrinsic(x, y, z, R_cam))
+        Ks.append(compute_intrinsic(const.img_resolution, const.cam_FOV))
+
         # x, y, z = 0, 0, 4
         print("Height angle {},Rotation angle{}".format(i * const.VDELTA, j * const.HDELTA))
         render_depth(False)
-        cam.location = (x, y, z)
+
         bpy.data.scenes['Scene'].render.filepath = image_dir + '/image_%d' % (index)
         bpy.ops.render.render(write_still=True)  # render still
 
@@ -233,3 +291,10 @@ for i in range(const.VV):
         camera_azimuth_angle += const.HDELTA
         index += 1
     camera_elevation_angle += const.VDELTA
+
+if const.store_matrices:
+    Ks = np.stack(Ks)
+    T_cams = np.stack(T_cams)
+    np.save(os.path.join(image_dir, 'intrinsics.npy'), Ks)
+    np.save(os.path.join(image_dir, 'extrinsics.npy'), T_cams)
+

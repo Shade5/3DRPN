@@ -41,15 +41,19 @@ max_objects = 2
 img_resolution = 128 # square image
 vox_resolution = 128
 
-ground_plane = 'rand' # [True, False, 'rand']
-height_rand = True
+ground_plane = True # [True, False, 'rand']
+height_rand = False
+store_matrices = True # whether to store extrinsics and intrinsics
 # dataset_name = 'real'
 # dataset_name = 'blender_rand_big'
 # dataset_name = 'blender_rand_huge'
-dataset_name = 'new_blender_rand_huge'
+# dataset_name = 'blender_iccv'
+# dataset_name = 'blender_rand_again'
+# dataset_name = 'diverge_test'
+dataset_name = 'blender_flex_cam'
 
-train_num_files = 10
-test_num_files = 10
+train_num_files = 300
+test_num_files = 50
 
 obj_raw_folder_path = os.path.join(repo_path, 'raw_objs/')
 obj_folder_path = os.path.join(repo_path, 'objs/')
