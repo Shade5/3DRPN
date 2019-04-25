@@ -36,23 +36,24 @@ VDELTA = (MAXV-MINV) / VV
 
 
 # Data Generation
-min_objects = 2
-max_objects = 2
+min_objects = 1
+max_objects = 4
 img_resolution = 128 # square image
 vox_resolution = 128
 
-ground_plane = True # [True, False, 'rand']
+ground_plane = False # [True, False, 'rand']
 height_rand = False
-store_matrices = True # whether to store extrinsics and intrinsics
+store_matrices = False # whether to store extrinsics and intrinsics
 # dataset_name = 'real'
 # dataset_name = 'blender_rand_big'
 # dataset_name = 'blender_rand_huge'
 # dataset_name = 'blender_iccv'
 # dataset_name = 'blender_rand_again'
 # dataset_name = 'diverge_test'
-dataset_name = 'blender_flex_cam'
+# dataset_name = 'blender_flex_cam'
+dataset_name = 'blender_var_obj'
 
-train_num_files = 300
+train_num_files = 200
 test_num_files = 50
 
 obj_raw_folder_path = os.path.join(repo_path, 'raw_objs/')

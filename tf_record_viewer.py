@@ -19,6 +19,7 @@ def decode(example):
         stuff = tf.parse_single_example(example, features={
             'images': tf.FixedLenFeature([], tf.string),
             'depths': tf.FixedLenFeature([], tf.string),
+            'objs_mask': tf.FixedLenFeature([], tf.string),
             'intrinsics': tf.FixedLenFeature([], tf.string),
             'extrinsics': tf.FixedLenFeature([], tf.string),
             # 'bboxes': tf.FixedLenFeature([], tf.string),
@@ -38,17 +39,20 @@ def decode(example):
         Ts_cam_to_world = tf.decode_raw(stuff['extrinsics'], tf.float64)
         Ts_cam_to_world = tf.reshape(Ts_cam_to_world, (const.N, 4, 4))
 
+        objs_mask = tf.decode_raw(stuff['objs_mask'], tf.float64)
+
         voxel = tf.decode_raw(stuff['voxel'], tf.float32)
         voxel = tf.reshape(voxel, (128, 128, 128))
         voxel_obj = tf.decode_raw(stuff['voxel_obj'], tf.float32)
         voxel_obj = tf.reshape(voxel_obj, (const.max_objects, 128, 128, 128))
         # return images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj
-        return images, depths, voxel, voxel_obj, Ks, Ts_cam_to_world
+        return images, depths, voxel, voxel_obj, Ks, Ts_cam_to_world, objs_mask
 
     else:
         stuff = tf.parse_single_example(example, features={
             'images': tf.FixedLenFeature([], tf.string),
             'depths': tf.FixedLenFeature([], tf.string),
+            'objs_mask': tf.FixedLenFeature([], tf.string),
             # 'bboxes': tf.FixedLenFeature([], tf.string),
             # 'pos_equal_one': tf.FixedLenFeature([], tf.string),
             # 'neg_equal_one': tf.FixedLenFeature([], tf.string),
@@ -62,6 +66,7 @@ def decode(example):
         images = tf.reshape(images, (const.N, const.img_resolution, const.img_resolution, 3))
         depths = tf.decode_raw(stuff['depths'], tf.float32)
         depths = tf.reshape(depths, (const.N, const.img_resolution, const.img_resolution, 1))
+        objs_mask = tf.decode_raw(stuff['objs_mask'], tf.float64)
         # bboxes = tf.decode_raw(stuff['bboxes'], tf.float64)
         # bboxes = tf.reshape(bboxes, (-1, 6))
         # pos_equal_one = tf.decode_raw(stuff['pos_equal_one'], tf.int64)
@@ -76,7 +81,7 @@ def decode(example):
         voxel_obj = tf.decode_raw(stuff['voxel_obj'], tf.float32)
         voxel_obj = tf.reshape(voxel_obj, (const.max_objects, 128, 128, 128))
         # return images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj
-        return images, depths, voxel, voxel_obj
+        return images, depths, voxel, voxel_obj, objs_mask
 
 
 def draw_bbox_reg(center, dimension, A):
@@ -128,15 +133,15 @@ with tf.Session() as sess:
         print("File Name", f)
         # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, num_obj, voxel, voxel_obj = sess.run(iterator.get_next())
         if const.store_matrices:
-            images, depths, voxel, voxel_obj, Ks, Ts_cam_to_world = sess.run(iterator.get_next())
+            images, depths, voxel, voxel_obj, Ks, Ts_cam_to_world, objs_mask = sess.run(iterator.get_next())
         else:
-            images, depths, voxel, voxel_obj = sess.run(iterator.get_next())
+            images, depths, voxel, voxel_obj, objs_mask = sess.run(iterator.get_next())
         import IPython;IPython.embed()
 
         plt.imshow(images[0]); plt.show()
         plt.imshow(depths[0].squeeze()); plt.show()
         xx,yy,zz = np.where(voxel == 1)
-        zzz, yyy, xxx = np.where(np.transpose(voxel, [2, 1, 0]) == 1)
+        # zzz, yyy, xxx = np.where(np.transpose(voxel, [2, 1, 0]) == 1)
         mayavi.mlab.points3d(xx, yy, zz,
                              mode="cube",
                              color=(0, 1, 0),

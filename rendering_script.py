@@ -231,6 +231,12 @@ tree.nodes["Map Range"].inputs["From Max"].default_value = const.depth_render_ma
 i = 0
 if add_ground_plane:
     bpy.data.objects['ground_plane'].select = False # individual voxel file does not contain ground plane
+
+# !!! unselect all objects first before export obj files
+for k, v in bpy.data.objects.items():
+    if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
+        v.select = False
+
 for k, v in bpy.data.objects.items():
     if k not in ['Camera', 'Empty', 'ground_plane', 'Lamp', 'New Lamp']:
         v.select = True

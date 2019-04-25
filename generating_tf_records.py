@@ -169,12 +169,21 @@ def generate_tf_records(files, dump_dir):
         # images, depths, bboxes, pos_equal_one, neg_equal_one, anchor_reg, voxel_full, voxels_individual = controller_for_one_file(files[i])
         if const.store_matrices:
             images, depths, voxel_full, voxels_individual, Ks, T_cams = controller_for_one_file(files[i])
-            num_obj = voxels_individual.shape[0]
-            voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
+        else:
+            images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
 
+
+        num_obj = voxels_individual.shape[0]
+        voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
+        objs_mask = np.zeros(const.max_objects)
+        objs_mask[:num_obj] = 1.0
+            
+
+        if const.store_matrices:
             example = tf.train.Example(features=tf.train.Features(feature={
                 'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float32
                 'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float32
+                'objs_mask': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(objs_mask).tostring()])),# float64
                 'intrinsics': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(Ks).tostring()])),# float64
                 'extrinsics': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(T_cams).tostring()])),# float64
                 # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
@@ -186,13 +195,10 @@ def generate_tf_records(files, dump_dir):
                 'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# float32
             }))
         else:
-            images, depths, voxel_full, voxels_individual = controller_for_one_file(files[i])
-            num_obj = voxels_individual.shape[0]
-            voxels_individual = np.append(voxels_individual, np.zeros((const.max_objects - num_obj, 128, 128, 128), dtype=np.float32), axis=0)
-
             example = tf.train.Example(features=tf.train.Features(feature={
                 'images': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(images).tostring()])),# float32
                 'depths': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(depths).tostring()])),# float32
+                'objs_mask': tf.train.Feature(bytes_list=tf.train.BytesList(value=[np.array(objs_mask).tostring()])),# float64
                 # 'bboxes': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bboxes.tostring()])),# float64
                 # 'pos_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[pos_equal_one.tostring()])),# int64
                 # 'neg_equal_one': tf.train.Feature(bytes_list=tf.train.BytesList(value=[neg_equal_one.tostring()])),# int64
@@ -201,6 +207,8 @@ def generate_tf_records(files, dump_dir):
                 'voxel': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxel_full.tostring()])),# float32
                 'voxel_obj': tf.train.Feature(bytes_list=tf.train.BytesList(value=[voxels_individual.tostring()])),# float32
             }))
+
+
         options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
         with tf.python_io.TFRecordWriter(os.path.join(dump_dir, os.path.basename(files[i])), options=options) as writer:
             writer.write(example.SerializeToString())
